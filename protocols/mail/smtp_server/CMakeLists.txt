@@ -5,7 +5,8 @@ find_package(Threads REQUIRED)
 
 set(main_target app)
 set(source_dir src)
-set(src ${source_dir}/main.cpp)
+set(src ${source_dir}/main.cpp
+        ${source_dir}/smtp.cpp)
 
 add_library(asio INTERFACE /usr/include/asio.hpp)
 target_include_directories(asio SYSTEM INTERFACE /usr/include/asio)
