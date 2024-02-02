@@ -5,10 +5,12 @@
 #include <iostream>
 #include <string_view>
 #include <unordered_map>
+#include <regex>
 
 using std::literals::string_view_literals::operator""sv;
 
 constexpr auto host_name = "SMTP.LOCALHOST"sv;
+const std::regex address_regexp("<[a-z/.]*@[a-z/.]*>", std::regex::icase);
 
 enum class session_state {
     greet,
@@ -155,13 +157,15 @@ message parse_tokens(std::vector<std::string> const& tokens) {
 
         if (argument_tokens.size() == 2) {
             std::string from_to_compare{};
-            std::string const& from_to_token = argument_tokens.front();
+            auto const& from_to_token = argument_tokens.front();
             std::transform(from_to_token.begin(), from_to_token.end(), std::back_inserter(from_to_compare),
                            [](auto chr) { return std::tolower(chr); });
+            auto address_token = argument_tokens.at(1);
+            auto is_address = regex_match(address_token, address_regexp);
 
-            if (from_to_compare == "to") {
+            if (from_to_compare == "to" && is_address) {
                 parsed_message.to = argument_tokens.at(1);
-            } else if (from_to_compare == "from") {
+            } else if (from_to_compare == "from" && is_address) {
                 parsed_message.from = argument_tokens.at(1);
             }
         } else {
