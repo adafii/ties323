@@ -1,11 +1,8 @@
+#include "asio.hpp"
+#include "config.h"
 #include "mail.h"
 #include "pop3.h"
 #include "smtp.h"
-#include <asio.hpp>
-#include <unordered_map>
-
-constexpr auto smtp_port = 2500;
-constexpr auto pop3_port = 1100;
 
 asio::awaitable<void> listener(
     asio::ip::tcp::acceptor&& acceptor,
@@ -20,8 +17,17 @@ asio::awaitable<void> listener(
 int main() {
     auto storage = std::make_shared<mail_storage>();
 
+    // Mock data
+    storage->maildrops["liia@localhost"].mails.push_back(
+        {.from{"test@localhost"},
+         .recipients{"test@localhost"},
+         .message{
+             "To: liia@localhost\r\nFrom: test@localhost\r\nSubject: Greetings\r\n\r\nHello, from SMTP\r\n.\r\n"}});
+
+    storage->maildrops["test@localhost"];
+
     try {
-        asio::io_context io_context{};
+        asio::io_context io_context{10};
 
         asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&](auto, auto) { io_context.stop(); });

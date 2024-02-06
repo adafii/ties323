@@ -1,9 +1,7 @@
 #pragma once
 #include "mail.h"
-#include <asio/awaitable.hpp>
-#include <asio/ip/tcp.hpp>
-#include <unordered_set>
-
+#include "asio/awaitable.hpp"
+#include "asio/ip/tcp.hpp"
 
 /**
  * @brief SMTP session manager

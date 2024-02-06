@@ -5,19 +5,29 @@
 #include <unordered_set>
 #include <vector>
 
+using username = std::string;
+
 /**
  * Mail
  */
 struct mail {
-    std::string from{};
-    std::unordered_set<std::string> recipients{};
+    username from{};
+    std::unordered_set<username> recipients{};
     std::string message{};
+};
+
+/**
+ * All user's mails
+ */
+struct maildrop {
+    std::vector<mail> mails{};
+    std::mutex transaction{};
 };
 
 /**
  * Volatile storage for mail
  */
 struct mail_storage {
-    std::unordered_map<std::string, std::vector<mail>> mails;
+    std::unordered_map<username, maildrop> maildrops;  // recipient, maildrop
     std::mutex write_lock;
 };

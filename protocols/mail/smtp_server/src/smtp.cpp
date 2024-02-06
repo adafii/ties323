@@ -1,6 +1,7 @@
 #include "smtp.h"
+#include "asio.hpp"
+#include "config.h"
 #include <algorithm>
-#include <asio.hpp>
 #include <format>
 #include <iostream>
 #include <regex>
@@ -9,7 +10,6 @@
 
 using std::literals::string_view_literals::operator""sv;
 
-constexpr auto host_name = "SMTP.LOCALHOST"sv;
 const std::regex domain_regex(R"(([a-z0-9]+\.)*[a-z0-9]+)", std::regex::icase);
 const std::regex address_regex(R"(<([a-z0-9]+\.)*[a-z0-9]+@([a-z0-9]+\.)*[a-z0-9]+>)", std::regex::icase);
 
@@ -343,7 +343,7 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket, std::shared_ptr
                         const std::lock_guard<std::mutex> lock(storage->write_lock);
 
                         for (auto const& recipient : current_mail.recipients) {
-                            storage->mails[recipient].push_back(current_mail);
+                            storage->maildrops[recipient].mails.push_back(current_mail);
                         }
                     }
 
