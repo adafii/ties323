@@ -85,102 +85,106 @@ void client(socket_t& socket, std::string_view user, std::string_view pass) {
     bool running = true;
     asio::error_code error{};
 
-    while (running) {
-        switch (state) {
-            case session_state::greeting: {
-                auto response = read_data(socket, error);
+    try {
+        while (running) {
+            switch (state) {
+                case session_state::greeting: {
+                    auto response = read_data(socket, error);
 
-                if (error) {
-                    state = session_state::error;
+                    if (error) {
+                        state = session_state::error;
+                        break;
+                    }
+
+                    if (is_ok(response)) {
+                        state = session_state::authorization;
+                    } else {
+                        state = session_state::quit;
+                    }
                     break;
                 }
+                case session_state::authorization: {
+                    write_data(socket, std::format(user_cmd, user), error);
 
-                if (is_ok(response)) {
-                    state = session_state::authorization;
-                } else {
+                    if (error) {
+                        state = session_state::error;
+                        break;
+                    }
+
+                    auto response = read_data(socket, error);
+
+                    if (error) {
+                        state = session_state::error;
+                        break;
+                    }
+
+                    if (!is_ok(response)) {
+                        state = session_state::quit;
+                        break;
+                    }
+
+                    write_data(socket, std::format(pass_cmd, pass), error);
+
+                    if (error) {
+                        state = session_state::error;
+                        break;
+                    }
+
+                    response = read_data(socket, error);
+
+                    if (error) {
+                        state = session_state::error;
+                        break;
+                    }
+
+                    if (is_ok(response)) {
+                        state = session_state::transaction;
+                    } else {
+                        state = session_state::quit;
+                    }
+
+                    break;
+                }
+                case session_state::transaction: {
+                    write_data(socket, list_cmd, error);
+
+                    if (error) {
+                        state = session_state::error;
+                        break;
+                    }
+
+                    auto list = read_list(socket, error);
+
                     state = session_state::quit;
-                }
-                break;
-            }
-            case session_state::authorization: {
-                write_data(socket, std::format(user_cmd, user), error);
-
-                if (error) {
-                    state = session_state::error;
                     break;
                 }
+                case session_state::quit: {
+                    write_data(socket, quit_cmd, error);
 
-                auto response = read_data(socket, error);
+                    if (error) {
+                        state = session_state::error;
+                        break;
+                    }
 
-                if (error) {
-                    state = session_state::error;
+                    auto response = read_data(socket, error);
+
+                    if (error) {
+                        state = session_state::error;
+                        break;
+                    }
+
+                    running = false;
                     break;
                 }
-
-                if (!is_ok(response)) {
-                    state = session_state::quit;
+                case session_state::error: {
+                    std::cerr << "Error: " << error.message() << '\n';
+                    running = false;
                     break;
                 }
-
-                write_data(socket, std::format(pass_cmd, pass), error);
-
-                if (error) {
-                    state = session_state::error;
-                    break;
-                }
-
-                response = read_data(socket, error);
-
-                if (error) {
-                    state = session_state::error;
-                    break;
-                }
-
-                if (is_ok(response)) {
-                    state = session_state::transaction;
-                } else {
-                    state = session_state::quit;
-                }
-
-                break;
-            }
-            case session_state::transaction: {
-                write_data(socket, list_cmd, error);
-
-                if (error) {
-                    state = session_state::error;
-                    break;
-                }
-
-                auto list = read_list(socket, error);
-
-                state = session_state::quit;
-                break;
-            }
-            case session_state::quit: {
-                write_data(socket, quit_cmd, error);
-
-                if (error) {
-                    state = session_state::error;
-                    break;
-                }
-
-                auto response = read_data(socket, error);
-
-                if (error) {
-                    state = session_state::error;
-                    break;
-                }
-
-                running = false;
-                break;
-            }
-            case session_state::error: {
-                std::cerr << "Error: " << error.message() << '\n';
-                running = false;
-                break;
             }
         }
+    } catch (std::exception& e) {
+        std::cerr << "POP3 exception: " << e.what() << '\n';
     }
 }
 
