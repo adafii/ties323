@@ -3,14 +3,15 @@
 #include <asio.hpp>
 #include <format>
 #include <iostream>
+#include <regex>
 #include <string_view>
 #include <unordered_map>
-#include <regex>
 
 using std::literals::string_view_literals::operator""sv;
 
 constexpr auto host_name = "SMTP.LOCALHOST"sv;
-const std::regex address_regexp("<[a-z/.]*@[a-z/.]*>", std::regex::icase);
+const std::regex domain_regex(R"(([a-z0-9]+\.)*[a-z0-9]+)", std::regex::icase);
+const std::regex address_regex(R"(<([a-z0-9]+\.)*[a-z0-9]+@([a-z0-9]+\.)*[a-z0-9]+>)", std::regex::icase);
 
 enum class session_state {
     greet,
@@ -36,17 +37,17 @@ const std::unordered_map<std::string_view, command_t> command_as_string{
     {"rcpt", command_t::rcpt}, {"data", command_t::data}, {"quit", command_t::quit},
 };
 
-struct message {
+struct parsed_command {
     command_t command{command_t::none};
     uint32_t num_tokens{0};
     std::string from{};
     std::string to{};
-    std::string argument{};
+    std::string domain{};
 };
 
 const std::unordered_map<uint32_t, const std::string_view> replies{
     {211, "{} System status, or system help reply"sv},
-    {214, "{} Help message"sv},
+    {214, "{} Help"sv},
     {220, "{} {} Service ready"sv},
     {221, "{} {} Service closing transmission channel"sv},
     {250, "{} OK"sv},
@@ -99,12 +100,12 @@ void split(std::string const& str, std::vector<std::string>& tokens, std::string
     tokens.emplace_back(str.substr(start, next - start));
 }
 
-std::pair<bool, uint32_t> execute(message const& message) {
+std::pair<bool, uint32_t> execute(parsed_command const& message) {
     switch (message.command) {
         case command_t::none:
             return {true, 500};
         case command_t::helo:
-            if (message.num_tokens != 2) {
+            if (message.num_tokens != 2 || message.domain.empty()) {
                 return {true, 501};
             }
             return {false, 250};
@@ -133,8 +134,8 @@ std::pair<bool, uint32_t> execute(message const& message) {
     }
 }
 
-message parse_tokens(std::vector<std::string> const& tokens) {
-    message parsed_message{};
+parsed_command parse_tokens(std::vector<std::string> const& tokens) {
+    parsed_command parsed_message{};
 
     if (tokens.empty() || tokens.size() > 2) {
         return parsed_message;
@@ -161,22 +162,23 @@ message parse_tokens(std::vector<std::string> const& tokens) {
             std::transform(from_to_token.begin(), from_to_token.end(), std::back_inserter(from_to_compare),
                            [](auto chr) { return std::tolower(chr); });
             auto address_token = argument_tokens.at(1);
-            auto is_address = regex_match(address_token, address_regexp);
+            auto is_address = regex_match(address_token, address_regex);
 
             if (from_to_compare == "to" && is_address) {
-                parsed_message.to = argument_tokens.at(1);
+                parsed_message.to = address_token.substr(1, address_token.size() - 2);
             } else if (from_to_compare == "from" && is_address) {
-                parsed_message.from = argument_tokens.at(1);
+                parsed_message.from = address_token.substr(1, address_token.size() - 2);
             }
-        } else {
-            parsed_message.argument = tokens.at(1);
+
+        } else if (regex_match(tokens.at(1), domain_regex)) {
+            parsed_message.domain = tokens.at(1);
         }
     }
 
     return parsed_message;
 }
 
-asio::awaitable<message> receive_from_socket(asio::ip::tcp::socket& socket) {
+asio::awaitable<parsed_command> receive_command_from_socket(asio::ip::tcp::socket& socket) {
     std::string data{};
     co_await asio::async_read_until(socket, asio::dynamic_buffer(data, 1024), "\r\n", asio::use_awaitable);
 
@@ -186,21 +188,25 @@ asio::awaitable<message> receive_from_socket(asio::ip::tcp::socket& socket) {
     co_return parse_tokens(received_tokens);
 }
 
-asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket) {
+asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket, std::shared_ptr<mail_storage> storage) {
+    auto state = session_state::greet;
+    bool running = true;
+
+    mail current_mail{};
+
+    auto receive_command = [&socket]() -> asio::awaitable<parsed_command> {
+        return receive_command_from_socket(socket);
+    };
+
+    auto send_reply = [&socket](uint32_t reply_code) -> asio::awaitable<void> {
+        co_await asio::async_write(socket, asio::buffer(reply_msg(reply_code)), asio::use_awaitable);
+    };
+
+    auto send_reply_msg = [&socket](uint32_t reply_code, std::string_view reply_message) -> asio::awaitable<void> {
+        co_await asio::async_write(socket, asio::buffer(reply_msg(reply_code, reply_message)), asio::use_awaitable);
+    };
+
     try {
-        auto state = session_state::greet;
-        bool running = true;
-
-        auto receive_message = [&socket]() -> asio::awaitable<message> { return receive_from_socket(socket); };
-
-        auto send_reply = [&socket](uint32_t reply_code) -> asio::awaitable<void> {
-            co_await asio::async_write(socket, asio::buffer(reply_msg(reply_code)), asio::use_awaitable);
-        };
-
-        auto send_reply_msg = [&socket](uint32_t reply_code, std::string_view reply_message) -> asio::awaitable<void> {
-            co_await asio::async_write(socket, asio::buffer(reply_msg(reply_code, reply_message)), asio::use_awaitable);
-        };
-
         while (running) {
             switch (state) {
                 case session_state::greet: {
@@ -209,8 +215,8 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket) {
                     break;
                 }
                 case session_state::init: {
-                    auto const message = co_await receive_message();
-                    auto const [error, reply_code] = execute(message);
+                    auto const command = co_await receive_command();
+                    auto const [error, reply_code] = execute(command);
 
                     if (error) {
                         co_await send_reply(reply_code);
@@ -218,7 +224,7 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket) {
                         break;
                     }
 
-                    switch (message.command) {
+                    switch (command.command) {
                         case command_t::helo:
                             co_await send_reply_msg(reply_code, host_name);
                             state = session_state::ready;
@@ -235,8 +241,10 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket) {
                     break;
                 }
                 case session_state::ready: {
-                    auto const message = co_await receive_message();
-                    auto const [error, reply_code] = execute(message);
+                    current_mail = mail{};
+
+                    auto const command = co_await receive_command();
+                    auto const [error, reply_code] = execute(command);
 
                     if (error) {
                         co_await send_reply(reply_code);
@@ -244,12 +252,14 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket) {
                         break;
                     }
 
-                    switch (message.command) {
+                    switch (command.command) {
                         case command_t::helo:
                             co_await send_reply_msg(reply_code, host_name);
                             state = session_state::ready;
                             break;
                         case command_t::mail:
+                            current_mail.from = command.from;
+
                             co_await send_reply(reply_code);
                             state = session_state::mail;
                             break;
@@ -265,8 +275,8 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket) {
                     break;
                 }
                 case session_state::mail: {
-                    auto const message = co_await receive_message();
-                    auto const [error, reply_code] = execute(message);
+                    auto const command = co_await receive_command();
+                    auto const [error, reply_code] = execute(command);
 
                     if (error) {
                         co_await send_reply(reply_code);
@@ -274,16 +284,24 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket) {
                         break;
                     }
 
-                    switch (message.command) {
+                    switch (command.command) {
                         case command_t::helo:
                             co_await send_reply_msg(reply_code, host_name);
                             state = session_state::mail;
                             break;
                         case command_t::rcpt:
+                            current_mail.recipients.insert(command.to);
+
                             co_await send_reply(reply_code);
                             state = session_state::mail;
                             break;
                         case command_t::data:
+                            if (current_mail.recipients.empty()) {
+                                co_await send_reply(503);
+                                state = session_state::mail;
+                                break;
+                            }
+
                             co_await send_reply(reply_code);
                             state = session_state::data;
                             break;
@@ -299,20 +317,39 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket) {
                     break;
                 }
                 case session_state::data: {
-                    for (;;) {
-                        std::string data{};
-                        co_await asio::async_read_until(socket, asio::dynamic_buffer(data, 1024), "\r\n",
-                                                        asio::use_awaitable);
+                    std::string data{};
+                    std::string line{};
+                    asio::streambuf buffer{};
+                    asio::error_code error{};
 
-                        std::cout << data.size() << '\n';
-                        if (data == ".\r\n") {
-                            state = session_state::ready;
+                    do {
+                        auto read_bytes =
+                            co_await asio::async_read_until(socket, buffer, "\r\n"sv, asio::use_awaitable);
+
+                        if (error) {
                             break;
+                        }
+
+                        line = std::string{buffers_begin(buffer.data()),
+                                           buffers_begin(buffer.data()) + static_cast<std::ptrdiff_t>(read_bytes)};
+                        data.append(line);
+
+                        buffer.consume(read_bytes);
+                    } while (line != ".\r\n");
+
+                    current_mail.message = data;
+
+                    {
+                        const std::lock_guard<std::mutex> lock(storage->write_lock);
+
+                        for (auto const& recipient : current_mail.recipients) {
+                            storage->mails[recipient].push_back(current_mail);
                         }
                     }
 
                     co_await send_reply(250);
 
+                    state = session_state::ready;
                     break;
                 }
                 case session_state::quit: {
@@ -323,6 +360,6 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket) {
             }
         }
     } catch (std::exception& e) {
-        std::printf("SMTP exception: %s\n", e.what());
+        std::cerr << "SMTP exception: " << e.what() << '\n';
     }
 }
