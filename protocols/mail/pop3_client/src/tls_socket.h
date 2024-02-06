@@ -1,5 +1,5 @@
 #pragma once
-#include "asio/ssl/stream.hpp"
 #include "asio/ip/tcp.hpp"
+#include "asio/ssl/stream.hpp"
 
-using tls_socket = asio::ssl::stream<asio::ip::tcp::socket>;
+using tls_socket_t = asio::ssl::stream<asio::ip::tcp::socket>;

@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+using std::literals::string_view_literals::operator""sv;
+
 enum class session_state {
     greeting,
     authorization,
@@ -12,8 +14,6 @@ enum class session_state {
     quit,
     error,
 };
-
-using std::literals::string_view_literals::operator""sv;
 
 constexpr auto server_msg = "S: {}"sv;
 constexpr auto client_msg = "C: {}"sv;
@@ -31,7 +31,8 @@ void debug(std::format_string<Args...> const& fmt, Args&&... args) {
     }
 }
 
-std::string read_data(tls_socket& socket, asio::error_code& error) {
+template <typename socket_t>
+std::string read_data(socket_t& socket, asio::error_code& error) {
     asio::streambuf buffer{};
     auto read_bytes = asio::read_until(socket, buffer, "\r\n"sv, error);
 
@@ -47,7 +48,8 @@ std::string read_data(tls_socket& socket, asio::error_code& error) {
     return response;
 }
 
-std::vector<std::string> read_list(tls_socket& socket, asio::error_code& error) {
+template <typename socket_t>
+std::vector<std::string> read_list(socket_t& socket, asio::error_code& error) {
     std::vector<std::string> list{};
     asio::streambuf buffer{};
 
@@ -62,12 +64,13 @@ std::vector<std::string> read_list(tls_socket& socket, asio::error_code& error) 
                           buffers_begin(buffer.data()) + static_cast<std::ptrdiff_t>(read_bytes) - 2);
         debug(server_msg, list.back());
         buffer.consume(read_bytes);
-    } while (!error && list.back() != ".");
+    } while (!error && list.back() != end_list);
 
     return list;
 }
 
-void write_data(tls_socket& socket, std::string_view data, asio::error_code& error) {
+template <typename socket_t>
+void write_data(socket_t& socket, std::string_view data, asio::error_code& error) {
     debug(client_msg, data);
     asio::write(socket, asio::buffer(std::format("{}\r\n"sv, data)), error);
 }
@@ -76,7 +79,8 @@ bool is_ok(std::string const& response) {
     return response.find(ok, 0) != std::string::npos;
 }
 
-void client(tls_socket& socket, std::string_view user, std::string_view pass) {
+template <typename socket_t>
+void client(socket_t& socket, std::string_view user, std::string_view pass) {
     session_state state = session_state::greeting;
     bool running = true;
     asio::error_code error{};
@@ -179,3 +183,6 @@ void client(tls_socket& socket, std::string_view user, std::string_view pass) {
         }
     }
 }
+
+template void client<asio::ip::tcp::socket>(asio::ip::tcp::socket& socket, std::string_view, std::string_view);
+template void client<tls_socket_t>(tls_socket_t& socket, std::string_view, std::string_view);
