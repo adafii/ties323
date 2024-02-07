@@ -8,6 +8,7 @@
 
 using std::literals::string_view_literals::operator""sv;
 
+namespace {
 constexpr auto negative = "-ERR"sv;
 constexpr auto no_user = "-ERR no such user here"sv;
 constexpr auto already_locked = "-ERR mail-drop already locked"sv;
@@ -74,6 +75,7 @@ asio::awaitable<std::string> read_data(asio::ip::tcp::socket& socket) {
 
     co_return response;
 }
+}  // namespace
 
 asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr<mail_storage> storage) {
     session_state state = session_state::greeting;

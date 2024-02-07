@@ -3,7 +3,7 @@ project("SMTP server" CXX)
 
 find_package(Threads REQUIRED)
 
-set(main_target app)
+set(main_target server)
 set(source_dir src)
 set(src ${source_dir}/main.cpp
         ${source_dir}/smtp.cpp
@@ -20,6 +20,6 @@ target_link_libraries(${main_target} PRIVATE asio)
 
 target_compile_features(${main_target} PRIVATE cxx_std_20)
 target_compile_options(${main_target} PRIVATE $<$<CONFIG:Debug>:-Wall -Wextra -Wpedantic -fsanitize=address -fsanitize=undefined>)
-target_compile_options(${main_target} PRIVATE $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:-Wall -Wextra -Wpedantic -flto>)
+target_compile_options(${main_target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:-Wall -Wextra -Wpedantic -flto>)
 target_link_options(${main_target} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address -fsanitize=undefined>)
-target_link_options(${main_target} PRIVATE $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:-flto>)
+target_link_options(${main_target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:-flto>)

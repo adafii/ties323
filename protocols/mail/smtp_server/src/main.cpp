@@ -32,10 +32,18 @@ int main() {
         asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&](auto, auto) { io_context.stop(); });
 
-        auto smtp_socket_acceptor = asio::ip::tcp::acceptor{io_context, {asio::ip::tcp::v4(), smtp_port}};
-        co_spawn(io_context, listener(std::move(smtp_socket_acceptor), smtp_session, storage), asio::detached);
+        auto localhost = asio::ip::make_address_v4("127.0.0.1");
+        /* asio::ip::basic_endpoint smtp_endpoint{localhost, smtp_port};
+           asio::basic_socket_acceptor<asio::ip::tcp> smtp_socket_acceptor{io_context};
+           smtp_socket_acceptor.set_option(asio::socket_base::reuse_address(true));
+           smtp_socket_acceptor.open(smtp_endpoint.protocol());
+           smtp_socket_acceptor.bind(smtp_endpoint);
+           smtp_socket_acceptor.listen(); */
 
-        auto pop3_socket_acceptor = asio::ip::tcp::acceptor{io_context, {asio::ip::tcp::v4(), pop3_port}};
+        auto smtp_socket_acceptor = asio::ip::tcp::acceptor{io_context, {localhost, smtp_port}};  // Same as above ^_^
+        auto pop3_socket_acceptor = asio::ip::tcp::acceptor{io_context, {localhost, pop3_port}};
+
+        co_spawn(io_context, listener(std::move(smtp_socket_acceptor), smtp_session, storage), asio::detached);
         co_spawn(io_context, listener(std::move(pop3_socket_acceptor), pop3_session, storage), asio::detached);
 
         io_context.run();

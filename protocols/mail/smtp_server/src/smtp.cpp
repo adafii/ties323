@@ -10,6 +10,7 @@
 
 using std::literals::string_view_literals::operator""sv;
 
+namespace {
 const std::regex domain_regex(R"(([a-z0-9]+\.)*[a-z0-9]+)", std::regex::icase);
 const std::regex address_regex(R"(<([a-z0-9]+\.)*[a-z0-9]+@([a-z0-9]+\.)*[a-z0-9]+>)", std::regex::icase);
 
@@ -187,6 +188,7 @@ asio::awaitable<parsed_command> receive_command_from_socket(asio::ip::tcp::socke
 
     co_return parse_tokens(received_tokens);
 }
+}  // namespace
 
 asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket, std::shared_ptr<mail_storage> storage) {
     auto state = session_state::greet;
