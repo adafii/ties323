@@ -6,10 +6,6 @@
 #include <string>
 #include <vector>
 
-void fetch_mails(asio::ip::tcp::socket& socket,
-                 std::vector<std::string> const& response,
-                 uint32_t tag,
-                 mailbox_storage& mailbox);
 using std::literals::string_view_literals::operator""sv;
 
 namespace {
