@@ -7,6 +7,8 @@
 
 using std::literals::string_view_literals::operator""sv;
 
+namespace {
+
 enum class session_state {
     greeting,
     authorization,
@@ -78,6 +80,8 @@ void write_data(socket_t& socket, std::string_view data, asio::error_code& error
 bool is_ok(std::string const& response) {
     return response.find(ok, 0) != std::string::npos;
 }
+
+}  // namespace
 
 template <typename socket_t>
 void client(socket_t& socket, std::string_view user, std::string_view pass) {

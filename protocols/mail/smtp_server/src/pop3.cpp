@@ -34,7 +34,7 @@ enum class command {
     unknown,
 };
 
-std::vector<std::pair<std::regex, command>> command_parser{
+const std::vector<std::pair<std::regex, command>> command_parser{
     {std::regex{R"(^user ([a-z0-9]+\.)*[a-z0-9]+(@([a-z0-9]+\.)*[a-z0-9]+)?$)", std::regex::icase}, command::user},
     {std::regex{R"(^pass \S+$)", std::regex::icase}, command::pass},
     {std::regex{R"(^list( [0-9]*)?$)", std::regex::icase}, command::list},
