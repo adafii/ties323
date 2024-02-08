@@ -11,8 +11,8 @@
 using std::literals::string_view_literals::operator""sv;
 
 namespace {
-const std::regex domain_regex(R"(([a-z0-9]+\.)*[a-z0-9]+)", std::regex::icase);
-const std::regex address_regex(R"(<([a-z0-9]+\.)*[a-z0-9]+@([a-z0-9]+\.)*[a-z0-9]+>)", std::regex::icase);
+const auto domain_regex = std::regex{R"(([a-z0-9]+\.)*[a-z0-9]+)", std::regex::icase};
+const auto address_regex = std::regex{R"(<([a-z0-9]+\.)*[a-z0-9]+@([a-z0-9]+\.)*[a-z0-9]+>)", std::regex::icase};
 
 enum class session_state {
     greet,
@@ -33,7 +33,7 @@ enum class command_t {
     none,
 };
 
-const std::unordered_map<std::string_view, command_t> command_as_string{
+const auto command_as_string = std::unordered_map<std::string_view, command_t>{
     {"helo", command_t::helo}, {"mail", command_t::mail}, {"from", command_t::from},
     {"rcpt", command_t::rcpt}, {"data", command_t::data}, {"quit", command_t::quit},
 };
@@ -46,7 +46,7 @@ struct parsed_command {
     std::string domain{};
 };
 
-const std::unordered_map<uint32_t, const std::string_view> replies{
+const auto replies = std::unordered_map<uint32_t, const std::string_view>{
     {211, "{} System status, or system help reply"sv},
     {214, "{} Help"sv},
     {220, "{} {} Service ready"sv},
@@ -83,14 +83,14 @@ std::string reply_msg(uint32_t reply_code, std::string_view reply_message) {
 }
 
 void split(std::string const& str, std::vector<std::string>& tokens, std::string const& delimiter) {
-    std::size_t start = str.find_first_not_of(delimiter);
+    auto start = str.find_first_not_of(delimiter);
 
     if (start == std::string::npos) {
         return;
     }
 
-    std::size_t next = str.find_first_of(delimiter, start);
-    std::size_t end = str.find_last_not_of(delimiter);
+    auto next = str.find_first_of(delimiter, start);
+    auto end = str.find_last_not_of(delimiter);
 
     while (next <= end && next != std::string::npos) {
         tokens.push_back(str.substr(start, next - start));
@@ -136,7 +136,7 @@ std::pair<bool, uint32_t> execute(parsed_command const& message) {
 }
 
 parsed_command parse_tokens(std::vector<std::string> const& tokens) {
-    parsed_command parsed_message{};
+    auto parsed_message = parsed_command{};
 
     if (tokens.empty() || tokens.size() > 2) {
         return parsed_message;
@@ -144,8 +144,8 @@ parsed_command parse_tokens(std::vector<std::string> const& tokens) {
 
     parsed_message.num_tokens = tokens.size();
 
-    std::string const& command = tokens.front();
-    std::string compare_command{};
+    const auto& command = tokens.front();
+    auto compare_command = std::string{};
     std::transform(command.begin(), command.end(), std::back_inserter(compare_command),
                    [](auto chr) { return std::tolower(chr); });
 
@@ -154,14 +154,16 @@ parsed_command parse_tokens(std::vector<std::string> const& tokens) {
     }
 
     if (tokens.size() == 2) {
-        std::vector<std::string> argument_tokens{};
+        auto argument_tokens = std::vector<std::string>{};
         split(tokens.at(1), argument_tokens, ":");
 
         if (argument_tokens.size() == 2) {
-            std::string from_to_compare{};
+            auto from_to_compare = std::string{};
             auto const& from_to_token = argument_tokens.front();
+
             std::transform(from_to_token.begin(), from_to_token.end(), std::back_inserter(from_to_compare),
                            [](auto chr) { return std::tolower(chr); });
+
             auto address_token = argument_tokens.at(1);
             auto is_address = regex_match(address_token, address_regex);
 
@@ -180,21 +182,22 @@ parsed_command parse_tokens(std::vector<std::string> const& tokens) {
 }
 
 asio::awaitable<parsed_command> receive_command_from_socket(asio::ip::tcp::socket& socket) {
-    std::string data{};
+    auto data = std::string{};
     co_await asio::async_read_until(socket, asio::dynamic_buffer(data, 1024), "\r\n", asio::use_awaitable);
 
-    std::vector<std::string> received_tokens{};
+    auto received_tokens = std::vector<std::string>{};
     split(data, received_tokens, " \r\n");
 
     co_return parse_tokens(received_tokens);
 }
+
 }  // namespace
 
 asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket, std::shared_ptr<mail_storage> storage) {
     auto state = session_state::greet;
-    bool running = true;
+    auto running = true;
 
-    mail current_mail{};
+    auto current_mail = mail{};
 
     auto receive_command = [&socket]() -> asio::awaitable<parsed_command> {
         return receive_command_from_socket(socket);
@@ -319,10 +322,10 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket, std::shared_ptr
                     break;
                 }
                 case session_state::data: {
-                    std::string data{};
-                    std::string line{};
-                    asio::streambuf buffer{};
-                    asio::error_code error{};
+                    auto data = std::string{};
+                    auto line = std::string{};
+                    auto buffer = asio::streambuf{};
+                    auto error = asio::error_code{};
 
                     do {
                         auto read_bytes =
@@ -342,7 +345,7 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket, std::shared_ptr
                     current_mail.message = data;
 
                     {
-                        const std::lock_guard<std::mutex> lock(storage->write_lock);
+                        const auto lock = std::lock_guard<std::mutex>{storage->write_lock};
 
                         for (auto const& recipient : current_mail.recipients) {
                             storage->maildrops[recipient].mails.push_back(current_mail);

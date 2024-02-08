@@ -1,5 +1,6 @@
 #include "asio.hpp"
 #include "config.h"
+#include "imap.h"
 #include "mail.h"
 #include "pop3.h"
 #include "smtp.h"
@@ -27,9 +28,9 @@ int main() {
     storage->maildrops["test@localhost"];
 
     try {
-        asio::io_context io_context{10};
+        auto io_context = asio::io_context{10};
 
-        asio::signal_set signals(io_context, SIGINT, SIGTERM);
+        auto signals = asio::signal_set{io_context, SIGINT, SIGTERM};
         signals.async_wait([&](auto, auto) { io_context.stop(); });
 
         auto localhost = asio::ip::make_address_v4("127.0.0.1");
@@ -42,9 +43,11 @@ int main() {
 
         auto smtp_socket_acceptor = asio::ip::tcp::acceptor{io_context, {localhost, smtp_port}};  // Same as above ^_^
         auto pop3_socket_acceptor = asio::ip::tcp::acceptor{io_context, {localhost, pop3_port}};
+        auto imap_socket_acceptor = asio::ip::tcp::acceptor{io_context, {localhost, imap_port}};
 
         co_spawn(io_context, listener(std::move(smtp_socket_acceptor), smtp_session, storage), asio::detached);
         co_spawn(io_context, listener(std::move(pop3_socket_acceptor), pop3_session, storage), asio::detached);
+        co_spawn(io_context, listener(std::move(imap_socket_acceptor), imap_session, storage), asio::detached);
 
         io_context.run();
     } catch (std::exception& e) {

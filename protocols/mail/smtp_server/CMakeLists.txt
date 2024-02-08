@@ -7,7 +7,8 @@ set(main_target server)
 set(source_dir src)
 set(src ${source_dir}/main.cpp
         ${source_dir}/smtp.cpp
-        ${source_dir}/pop3.cpp)
+        ${source_dir}/pop3.cpp
+        ${source_dir}/imap.cpp)
 
 add_library(asio INTERFACE /usr/include/asio.hpp)
 target_include_directories(asio SYSTEM INTERFACE /usr/include/asio)

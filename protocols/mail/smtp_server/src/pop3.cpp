@@ -35,14 +35,14 @@ enum class command {
     unknown,
 };
 
-const std::vector<std::pair<std::regex, command>> command_parser{
+const auto command_parser = std::vector<std::pair<std::regex, command>>{
     {std::regex{R"(^user ([a-z0-9]+\.)*[a-z0-9]+(@([a-z0-9]+\.)*[a-z0-9]+)?$)", std::regex::icase}, command::user},
     {std::regex{R"(^pass \S+$)", std::regex::icase}, command::pass},
     {std::regex{R"(^list( [0-9]*)?$)", std::regex::icase}, command::list},
     {std::regex{R"(^quit$)", std::regex::icase}, command::quit},
 };
 
-command parse_command(std::string const& response) {
+command parse_request(std::string const& response) {
     for (auto const& [regex, command] : command_parser) {
         if (std::regex_match(response, regex)) {
             return command;
@@ -67,11 +67,11 @@ asio::awaitable<void> write_data(asio::ip::tcp::socket& socket, std::string_view
 }
 
 asio::awaitable<std::string> read_data(asio::ip::tcp::socket& socket) {
-    asio::streambuf buffer{};
+    auto buffer = asio::streambuf{};
     auto read_bytes = co_await asio::async_read_until(socket, buffer, "\r\n"sv, asio::use_awaitable);
 
-    std::string response{buffers_begin(buffer.data()),
-                         buffers_begin(buffer.data()) + static_cast<std::ptrdiff_t>(read_bytes) - 2};
+    auto response = std::string{buffers_begin(buffer.data()),
+                                buffers_begin(buffer.data()) + static_cast<std::ptrdiff_t>(read_bytes) - 2};
     buffer.consume(read_bytes);
 
     co_return response;
@@ -79,12 +79,12 @@ asio::awaitable<std::string> read_data(asio::ip::tcp::socket& socket) {
 }  // namespace
 
 asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr<mail_storage> storage) {
-    session_state state = session_state::greeting;
-    bool running = true;
+    auto state = session_state::greeting;
+    auto running = true;
 
-    std::string user{};
-    std::string pass{};
-    std::unique_lock<std::mutex> current_transaction{};
+    auto user = std::string{};
+    auto pass = std::string{};
+    auto current_transaction = std::unique_lock<std::mutex>{};
 
     try {
         while (running) {
@@ -95,8 +95,8 @@ asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr
                     break;
                 }
                 case session_state::authorization: {
-                    auto response = co_await read_data(socket);
-                    auto command = parse_command(response);
+                    auto request = co_await read_data(socket);
+                    auto command = parse_request(request);
 
                     switch (command) {
                         case command::user: {
@@ -105,7 +105,7 @@ asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr
                                 break;
                             }
 
-                            auto tried_user = get_argument(response);
+                            auto tried_user = get_argument(request);
 
                             if (tried_user.find('@') == std::string::npos) {
                                 tried_user.append(std::format("@{}", host_name));
@@ -131,7 +131,8 @@ asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr
 
                             // password check skipped
 
-                            std::unique_lock try_transaction{storage->maildrops.at(user).transaction, std::defer_lock};
+                            auto try_transaction =
+                                std::unique_lock{storage->maildrops.at(user).transaction, std::defer_lock};
                             auto has_transaction = try_transaction.try_lock();
 
                             if (!has_transaction) {
@@ -140,7 +141,7 @@ asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr
                             }
 
                             co_await write_data(socket, positive);
-                            pass = get_argument(response);
+                            pass = get_argument(request);
                             current_transaction.swap(try_transaction);
                             state = session_state::transaction;
                             break;
@@ -159,8 +160,8 @@ asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr
                     break;
                 }
                 case session_state::transaction: {
-                    auto response = co_await read_data(socket);
-                    auto command = parse_command(response);
+                    auto request = co_await read_data(socket);
+                    auto command = parse_request(request);
 
                     switch (command) {
                         case command::list: {
@@ -170,7 +171,7 @@ asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr
                                 std::accumulate(mails.begin(), mails.end(), 0,
                                                 [](auto acc, auto const& mail) { return acc + mail.message.size(); });
 
-                            if (auto list_one_message = get_argument(response); !list_one_message.empty()) {
+                            if (auto list_one_message = get_argument(request); !list_one_message.empty()) {
                                 uint32_t message_num = 0;
                                 try {
                                     message_num = std::stoi(list_one_message);

@@ -35,15 +35,15 @@ void debug(std::format_string<Args...> const& fmt, Args&&... args) {
 
 template <typename socket_t>
 std::string read_data(socket_t& socket, asio::error_code& error) {
-    asio::streambuf buffer{};
+    auto buffer = asio::streambuf{};
     auto read_bytes = asio::read_until(socket, buffer, "\r\n"sv, error);
 
     if (error) {
         return {};
     }
 
-    std::string response{buffers_begin(buffer.data()),
-                         buffers_begin(buffer.data()) + static_cast<std::ptrdiff_t>(read_bytes) - 2};
+    auto response = std::string{buffers_begin(buffer.data()),
+                                buffers_begin(buffer.data()) + static_cast<std::ptrdiff_t>(read_bytes) - 2};
     buffer.consume(read_bytes);
     debug(server_msg, response);
 
@@ -52,8 +52,8 @@ std::string read_data(socket_t& socket, asio::error_code& error) {
 
 template <typename socket_t>
 std::vector<std::string> read_list(socket_t& socket, asio::error_code& error) {
-    std::vector<std::string> list{};
-    asio::streambuf buffer{};
+    auto list = std::vector<std::string>{};
+    auto buffer = asio::streambuf{};
 
     do {
         auto read_bytes = asio::read_until(socket, buffer, "\r\n"sv, error);
@@ -85,9 +85,9 @@ bool is_ok(std::string const& response) {
 
 template <typename socket_t>
 void client(socket_t& socket, std::string_view user, std::string_view pass) {
-    session_state state = session_state::greeting;
-    bool running = true;
-    asio::error_code error{};
+    auto state = session_state::greeting;
+    auto running = true;
+    auto error = asio::error_code{};
 
     try {
         while (running) {

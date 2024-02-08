@@ -6,7 +6,7 @@
 #include <string_view>
 
 int main(int argc, char* argv[]) {
-    std::vector<std::string> args{argv + 1, argv + argc};
+    auto args = std::vector<std::string>{argv + 1, argv + argc};
 
     if (args.size() < 4 || args.size() > 5) {
         std::cerr << "Usage: " << argv[0] << " [ -tls ] <user> <pass> <host> <port>\n";
@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
 
     auto it = args.begin();
 
-    bool tls = false;
+    auto tls = false;
     if (args.size() == 5 && *it == "-tls") {
         tls = true;
         ++it;
@@ -27,19 +27,19 @@ int main(int argc, char* argv[]) {
     std::string_view port = *std::next(it, 3);
 
     try {
-        asio::io_context io_context(1);
+        auto io_context = asio::io_context{1};
 
-        asio::signal_set signals(io_context, SIGINT, SIGTERM);
+        auto signals = asio::signal_set(io_context, SIGINT, SIGTERM);
         signals.async_wait([&](auto, auto) { io_context.stop(); });
 
         if (tls) {
-            asio::ssl::context tls_context(asio::ssl::context::tlsv13);
+            auto tls_context = asio::ssl::context{asio::ssl::context::tlsv13};
             tls_context.set_default_verify_paths();
 
-            tls_socket_t tls_socket(io_context, tls_context);
-            asio::ip::tcp::resolver resolver(io_context);
+            auto tls_socket = tls_socket_t{io_context, tls_context};
+            auto resolver = asio::ip::tcp::resolver(io_context);
 
-            asio::error_code connection_error{};
+            auto connection_error = asio::error_code{};
             asio::connect(tls_socket.lowest_layer(), resolver.resolve(host, port), connection_error);
 
             if (connection_error) {
@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
             tls_socket.set_verify_mode(asio::ssl::verify_peer);
             tls_socket.set_verify_callback(asio::ssl::host_name_verification(std::string(host)));
 
-            asio::error_code handshake_error{};
+            auto handshake_error = asio::error_code{};
             tls_socket.handshake(tls_socket_t::client, handshake_error);
 
             if (handshake_error) {
@@ -63,10 +63,10 @@ int main(int argc, char* argv[]) {
             std::cout << "TLS handshake OK\n";
             client(tls_socket, user, pass);
         } else {
-            asio::ip::tcp::socket socket(io_context);
-            asio::ip::tcp::resolver resolver(io_context);
+            auto socket = asio::ip::tcp::socket{io_context};
+            auto resolver = asio::ip::tcp::resolver{io_context};
 
-            asio::error_code connection_error{};
+            auto connection_error = asio::error_code{};
             asio::connect(socket, resolver.resolve(host, port), connection_error);
 
             if (connection_error) {
