@@ -18,14 +18,14 @@ constexpr auto examine_command = "{} EXAMINE {}"sv;
 constexpr auto logout_command = "{} LOGOUT"sv;
 constexpr auto fetch_header_summary = "{} FETCH {} BODY[HEADER.FIELDS (TO FROM DATE SUBJECT)]"sv;
 
-const auto ok_reply{std::regex(R"(^.+ ok.*$)", std::regex::icase)};
-const auto parse_mailbox{std::regex(R"-(.*LIST.*"(.+)"\s*$)-", std::regex::icase)};
-const auto has_status{std::regex(R"(^.+ (ok|no|bad|preauth|bye).*$)", std::regex::icase)};
-const auto parse_exists{std::regex(R"-((\d+) EXISTS)-", std::regex ::icase)};
-const auto parse_from{std::regex(R"-(from: (.*\S)\s*$)-", std::regex ::icase)};
-const auto parse_to{std::regex(R"-(to: (.*\S)\s*$)-", std::regex ::icase)};
-const auto parse_date{std::regex(R"-(date: (.*\S)\s*$)-", std::regex ::icase)};
-const auto parse_subject{std::regex(R"-(subject: (.*\S)\s*$)-", std::regex ::icase)};
+const auto ok_reply = std::regex{R"(^.+ ok.*$)", std::regex::icase};
+const auto parse_mailbox = std::regex{R"-(.*LIST.*"(.+)"\s*$)-", std::regex::icase};
+const auto has_status = std::regex{R"(^.+ (ok|no|bad|preauth|bye).*$)", std::regex::icase};
+const auto parse_exists = std::regex{R"-((\d+) EXISTS)-", std::regex ::icase};
+const auto parse_from = std::regex{R"-(from: (.*\S)\s*$)-", std::regex ::icase};
+const auto parse_to = std::regex{R"-(to: (.*\S)\s*$)-", std::regex ::icase};
+const auto parse_date = std::regex{R"-(date: (.*\S)\s*$)-", std::regex ::icase};
+const auto parse_subject = std::regex{R"-(subject: (.*\S)\s*$)-", std::regex ::icase};
 
 enum class session_state {
     greeting,
@@ -43,11 +43,11 @@ void debug(std::format_string<Args...> const& fmt, Args&&... args) {
 }
 
 std::string read_data(asio::ip::tcp::socket& socket) {
-    asio::streambuf buffer{};
+    auto buffer = asio::streambuf{};
     auto read_bytes = asio::read_until(socket, buffer, "\r\n"sv);
 
-    std::string response{buffers_begin(buffer.data()),
-                         buffers_begin(buffer.data()) + static_cast<std::ptrdiff_t>(read_bytes) - 2};
+    auto response = std::string{buffers_begin(buffer.data()),
+                                buffers_begin(buffer.data()) + static_cast<std::ptrdiff_t>(read_bytes) - 2};
     buffer.consume(read_bytes);
     debug(server_msg, response);
 
@@ -55,8 +55,8 @@ std::string read_data(asio::ip::tcp::socket& socket) {
 }
 
 std::vector<std::string> read_multiple_lines(asio::ip::tcp::socket& socket) {
-    std::vector<std::string> lines{};
-    asio::streambuf buffer{};
+    auto lines = std::vector<std::string>{};
+    auto buffer = asio::streambuf{};
 
     do {
         auto read_bytes = asio::read_until(socket, buffer, "\r\n"sv);
@@ -80,8 +80,8 @@ bool is_ok(std::string const& response) {
 }
 
 std::vector<std::string> extract_mailbox_names(std::vector<std::string> const& response) {
-    std::vector<std::string> names{};
-    std::smatch submatch{};
+    auto names = std::vector<std::string>{};
+    auto submatch = std::smatch{};
 
     for (auto const& line : response) {
         if (std::regex_match(line, submatch, parse_mailbox)) {
@@ -101,7 +101,7 @@ void store_mailbox_names(std::vector<std::string> const& response, mailbox_stora
 
 std::uint32_t get_exists_amount(std::vector<std::string> const& response) {
     uint32_t amount = 0;
-    std::smatch submatch{};
+    auto submatch = std::smatch{};
 
     for (auto const& line : response) {
         if (std::regex_search(line, submatch, parse_exists)) {
@@ -113,7 +113,7 @@ std::uint32_t get_exists_amount(std::vector<std::string> const& response) {
 }
 
 void extract_header_summary(std::vector<std::string> const& response, mail& new_mail) {
-    std::smatch submatch{};
+    auto submatch = std::smatch{};
 
     for (auto const& line : response) {
         if (std::regex_search(line, submatch, parse_from)) {
@@ -132,7 +132,7 @@ void extract_header_summary(std::vector<std::string> const& response, mail& new_
 }
 
 std::vector<mail> fetch_mails(asio::ip::tcp::socket& socket, std::string const& mailbox_name, uint32_t& tag) {
-    std::vector<mail> mails{};
+    auto mails = std::vector<mail>{};
 
     write_data(socket, std::format(examine_command, ++tag, mailbox_name));
     auto response = read_multiple_lines(socket);
@@ -140,7 +140,7 @@ std::vector<mail> fetch_mails(asio::ip::tcp::socket& socket, std::string const& 
     auto exists_amount = get_exists_amount(response);
 
     for (uint32_t i = 1; i <= exists_amount; ++i) {
-        mail new_mail{};
+        auto new_mail = mail{};
 
         write_data(socket, std::format(fetch_header_summary, ++tag, i));
         response = read_multiple_lines(socket);
@@ -155,8 +155,8 @@ std::vector<mail> fetch_mails(asio::ip::tcp::socket& socket, std::string const& 
 }  // namespace
 
 void client(asio::ip::tcp::socket& socket, std::string_view user, std::string_view pass, mailbox_storage& storage) {
-    session_state state = session_state::greeting;
-    bool running = true;
+    auto state = session_state::greeting;
+    auto running = true;
     std::uint32_t tag = 0;
 
     try {
