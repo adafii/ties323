@@ -14,6 +14,7 @@ constexpr auto no_user = "-ERR no such user here"sv;
 constexpr auto already_locked = "-ERR mail-drop already locked"sv;
 constexpr auto positive = "+OK"sv;
 constexpr auto list_ok = "+OK {} messages ({} octets)"sv;
+constexpr auto list_one = "+OK {} {}"sv;
 constexpr auto greeting = "+OK POP3 server ready"sv;
 constexpr auto quitting = "+OK POP3 server signing off"sv;
 constexpr auto list_entry = "{} {}"sv;
@@ -168,6 +169,23 @@ asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr
                             auto octets =
                                 std::accumulate(mails.begin(), mails.end(), 0,
                                                 [](auto acc, auto const& mail) { return acc + mail.message.size(); });
+
+                            if (auto list_one_message = get_argument(response); !list_one_message.empty()) {
+                                uint32_t message_num = 0;
+                                try {
+                                    message_num = std::stoi(list_one_message);
+                                } catch (std::exception& ex) {
+                                }
+
+                                if (message_num < 1 || message_num > static_cast<uint32_t>(mail_num)) {
+                                    co_await write_data(socket, negative);
+                                    break;
+                                }
+
+                                co_await write_data(
+                                    socket, std::format(list_one, message_num, mails[message_num - 1].message.size()));
+                                break;
+                            }
 
                             co_await write_data(socket, std::format(list_ok, mail_num, octets));
 
