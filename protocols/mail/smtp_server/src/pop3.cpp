@@ -168,7 +168,7 @@ asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr
                             auto const& mails = storage->maildrops[user].mails;
                             auto mail_num = mails.size();
                             auto octets =
-                                std::accumulate(mails.begin(), mails.end(), 0,
+                                std::accumulate(mails.at("INBOX").begin(), mails.at("INBOX").end(), 0,
                                                 [](auto acc, auto const& mail) { return acc + mail.message.size(); });
 
                             if (auto list_one_message = get_argument(request); !list_one_message.empty()) {
@@ -183,15 +183,17 @@ asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr
                                     break;
                                 }
 
-                                co_await write_data(
-                                    socket, std::format(list_one, message_num, mails[message_num - 1].message.size()));
+                                co_await write_data(socket,
+                                                    std::format(list_one, message_num,
+                                                                mails.at("INBOX")[message_num - 1].message.size()));
                                 break;
                             }
 
                             co_await write_data(socket, std::format(list_ok, mail_num, octets));
 
                             for (std::size_t i = 0; i < mails.size(); ++i) {
-                                co_await write_data(socket, std::format(list_entry, i + 1, mails[i].message.size()));
+                                co_await write_data(
+                                    socket, std::format(list_entry, i + 1, mails.at("INBOX")[i].message.size()));
                             }
 
                             co_await write_data(socket, list_end);

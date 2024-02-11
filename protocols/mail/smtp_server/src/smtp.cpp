@@ -348,7 +348,7 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket, std::shared_ptr
                         const auto lock = std::lock_guard<std::mutex>{storage->write_lock};
 
                         for (auto const& recipient : current_mail.recipients) {
-                            storage->maildrops[recipient].mails.push_back(current_mail);
+                            storage->maildrops[recipient].mails["INBOX"].push_back(current_mail);
                         }
                     }
 

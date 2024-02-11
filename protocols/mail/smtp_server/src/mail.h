@@ -6,6 +6,7 @@
 #include <vector>
 
 using user = std::string;
+using mailbox = std::string;
 using recipient = user;
 
 /**
@@ -21,7 +22,7 @@ struct mail {
  * All user's mails
  */
 struct maildrop {
-    std::vector<mail> mails{};
+    std::unordered_map<mailbox, std::vector<mail>> mails{};
     std::mutex transaction{};
 };
 
