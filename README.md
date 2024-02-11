@@ -1,4 +1,4 @@
-# TIES323 Sovellusprotokollat
+# TIES323 Application Protocols
 
 The assignments are [here](http://users.jyu.fi/~arjuvi/opetus/ties323/2018/demot.html).
 
@@ -14,7 +14,7 @@ SMTP, POP3, and IMAP servers are run within a single process, which allows them 
 - [x] [POP3 client](/protocols/mail/pop3_client)
 - [x] [Inbox for SMTP server; POP3 server](/protocols/mail/smtp_server)
 - [x] [IMAP client](/protocols/mail/imap_client)
-- [ ] IMAP server
+- [x] [IMAP server](/protocols/mail/smtp_server)
 - [ ] Extra features (2/3)
     - POP3 client has TLS option
     - Parallelized multi-user SMTP/POP3 server with transaction locking for POP3
