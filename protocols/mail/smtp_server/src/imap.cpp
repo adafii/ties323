@@ -54,19 +54,19 @@ std::pair<command, std::smatch> parse_request(std::string const& response) {
     return {command::unknown, submatch};
 }
 
-void write_data(asio::ip::tcp::socket& socket, std::string_view data) {
-    asio::write(socket, asio::buffer(std::format("{}\r\n"sv, data)));
+asio::awaitable<void> write_data(asio::ip::tcp::socket& socket, std::string_view data) {
+    co_await asio::async_write(socket, asio::buffer(std::format("{}\r\n"sv, data)), asio::use_awaitable);
 }
 
-std::string read_data(asio::ip::tcp::socket& socket) {
+asio::awaitable<std::string> read_data(asio::ip::tcp::socket& socket) {
     auto buffer = asio::streambuf{};
-    auto read_bytes = asio::read_until(socket, buffer, "\r\n"sv);
+    auto read_bytes = co_await asio::async_read_until(socket, buffer, "\r\n"sv, asio::use_awaitable);
 
     auto response = std::string{buffers_begin(buffer.data()),
                                 buffers_begin(buffer.data()) + static_cast<std::ptrdiff_t>(read_bytes) - 2};
     buffer.consume(read_bytes);
 
-    return response;
+    co_return response;
 }
 
 }  // namespace
@@ -81,12 +81,12 @@ asio::awaitable<void> imap_session(asio::ip::tcp::socket socket, std::shared_ptr
         while (running) {
             switch (state) {
                 case session_state::greeting: {
-                    write_data(socket, std::format(greeting, host_name));
+                    co_await write_data(socket, std::format(greeting, host_name));
                     state = session_state::unauthenticated;
                     break;
                 }
                 case session_state::unauthenticated: {
-                    auto request = read_data(socket);
+                    auto request = co_await read_data(socket);
                     auto const [command, arguments] = parse_request(request);
 
                     switch (command) {
@@ -100,40 +100,40 @@ asio::awaitable<void> imap_session(asio::ip::tcp::socket socket, std::shared_ptr
                             }
 
                             if (!storage->maildrops.contains(tried_user)) {
-                                write_data(socket, std::format(no, tag));
+                                co_await write_data(socket, std::format(no, tag));
                                 break;
                             }
 
                             // Skip password check
 
                             user = tried_user;
-                            pass = tried_pass;
+                            //pass = tried_pass;
 
-                            write_data(socket, std::format(ok, tag));
+                            co_await write_data(socket, std::format(ok, tag));
                             state = session_state::authenticated;
                             break;
                         }
                         case command::logout: {
                             auto tag = arguments.str(1);
-                            write_data(socket, bye);
-                            write_data(socket, std::format(ok, tag));
+                            co_await write_data(socket, bye);
+                            co_await write_data(socket, std::format(ok, tag));
                             state = session_state::quit;
                             break;
                         }
                         case command::tag_unknown: {
                             auto tag = arguments.str(1);
-                            write_data(socket, std::format(bad_tag, tag));
+                            co_await write_data(socket, std::format(bad_tag, tag));
                             break;
                         }
                         default: {
-                            write_data(socket, bad);
+                            co_await write_data(socket, bad);
                             break;
                         }
                     }
                     break;
                 }
                 case session_state::authenticated: {
-                    auto request = read_data(socket);
+                    auto request = co_await read_data(socket);
                     auto const [command, arguments] = parse_request(request);
 
                     switch (command) {
@@ -143,7 +143,7 @@ asio::awaitable<void> imap_session(asio::ip::tcp::socket socket, std::shared_ptr
                             auto mailbox_name = arguments.str(4).empty() ? arguments.str(5) : arguments.str(4);
 
                             if (!(reference.empty() || reference == "/")) {
-                                write_data(socket, std::format(ok, tag));
+                                co_await write_data(socket, std::format(ok, tag));
                                 break;
                             }
 
@@ -151,29 +151,29 @@ asio::awaitable<void> imap_session(asio::ip::tcp::socket socket, std::shared_ptr
 
                             if (mailbox_name == "*") {
                                 for (const auto& [mailbox, mails] : storage->maildrops.at(user).mails) {
-                                    write_data(socket, std::format(list, "/", mailbox));
+                                    co_await write_data(socket, std::format(list, "/", mailbox));
                                 }
                             } else if (storage->maildrops.at(user).mails.contains(mailbox_name)) {
-                                write_data(socket, std::format(list, "/", mailbox_name));
+                                co_await write_data(socket, std::format(list, "/", mailbox_name));
                             }
 
-                            write_data(socket, std::format(ok, tag));
+                            co_await write_data(socket, std::format(ok, tag));
                             break;
                         }
                         case command::logout: {
                             auto tag = arguments.str(1);
-                            write_data(socket, bye);
-                            write_data(socket, std::format(ok, tag));
+                            co_await write_data(socket, bye);
+                            co_await write_data(socket, std::format(ok, tag));
                             state = session_state::quit;
                             break;
                         }
                         case command::tag_unknown: {
                             auto tag = arguments.str(1);
-                            write_data(socket, std::format(bad_tag, tag));
+                            co_await write_data(socket, std::format(bad_tag, tag));
                             break;
                         }
                         default: {
-                            write_data(socket, bad);
+                            co_await write_data(socket, bad);
                             break;
                         }
                     }
