@@ -1,0 +1,5 @@
+[Mon Feb 12 16:06:50.004743 2024] [mpm_event:notice] [pid 45:tid 127248633358208] AH00489: Apache/2.4.57 (Debian) configured -- resuming normal operations
+[Mon Feb 12 16:06:50.004798 2024] [core:notice] [pid 45:tid 127248633358208] AH00094: Command line: '/usr/sbin/apache2'
+[Mon Feb 12 16:08:53.919978 2024] [mpm_event:notice] [pid 45:tid 127248633358208] AH00492: caught SIGWINCH, shutting down gracefully
+[Mon Feb 12 16:08:57.950080 2024] [mpm_event:notice] [pid 133:tid 123385558677376] AH00489: Apache/2.4.57 (Debian) configured -- resuming normal operations
+[Mon Feb 12 16:08:57.950130 2024] [core:notice] [pid 133:tid 123385558677376] AH00094: Command line: '/usr/sbin/apache2'

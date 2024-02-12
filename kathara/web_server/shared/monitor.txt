@@ -1,0 +1,274 @@
+No.     Time           Source                Destination           Protocol Length Info
+      1 0.000000       10.0.0.2              10.0.0.1              TCP      74     49194 → 80 [SYN] Seq=0 Win=32120 Len=0 MSS=1460 SACK_PERM TSval=753285918 TSecr=0 WS=128
+
+Frame 1: 74 bytes on wire (592 bits), 74 bytes captured (592 bits)
+Ethernet II, Src: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c), Dst: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c)
+Internet Protocol Version 4, Src: 10.0.0.2, Dst: 10.0.0.1
+Transmission Control Protocol, Src Port: 49194, Dst Port: 80, Seq: 0, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+      2 0.000027       10.0.0.1              10.0.0.2              TCP      74     80 → 49194 [SYN, ACK] Seq=0 Ack=1 Win=31856 Len=0 MSS=1460 SACK_PERM TSval=1476619989 TSecr=753285918 WS=128
+
+Frame 2: 74 bytes on wire (592 bits), 74 bytes captured (592 bits)
+Ethernet II, Src: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c), Dst: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c)
+Internet Protocol Version 4, Src: 10.0.0.1, Dst: 10.0.0.2
+Transmission Control Protocol, Src Port: 80, Dst Port: 49194, Seq: 0, Ack: 1, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+      3 0.000060       10.0.0.2              10.0.0.1              TCP      66     49194 → 80 [ACK] Seq=1 Ack=1 Win=32128 Len=0 TSval=753285918 TSecr=1476619989
+
+Frame 3: 66 bytes on wire (528 bits), 66 bytes captured (528 bits)
+Ethernet II, Src: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c), Dst: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c)
+Internet Protocol Version 4, Src: 10.0.0.2, Dst: 10.0.0.1
+Transmission Control Protocol, Src Port: 49194, Dst Port: 80, Seq: 1, Ack: 1, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+      4 0.000092       10.0.0.2              10.0.0.1              HTTP     665    GET / HTTP/1.1 
+
+Frame 4: 665 bytes on wire (5320 bits), 665 bytes captured (5320 bits)
+Ethernet II, Src: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c), Dst: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c)
+Internet Protocol Version 4, Src: 10.0.0.2, Dst: 10.0.0.1
+Transmission Control Protocol, Src Port: 49194, Dst Port: 80, Seq: 1, Ack: 1, Len: 599
+Hypertext Transfer Protocol
+    GET / HTTP/1.1\r\n
+    Host: 10.0.0.1\r\n
+    User-Agent: Links (2.28; Linux 6.7.4-arch1-1 x86_64; GNU C 12.2; text)\r\n
+    Accept: */*\r\n
+    Accept-Language: en,*;q=0.1\r\n
+    Accept-Encoding: gzip, deflate, br, zstd, bzip2, lzma, lzma2, lzip\r\n
+     [truncated]Accept-Charset: us-ascii,ISO-8859-1,ISO-8859-2,ISO-8859-3,ISO-8859-4,ISO-8859-5,ISO-8859-6,ISO-8859-7,ISO-8859-8,ISO-8859-9,ISO-8859-10,ISO-8859-13,ISO-8859-14,ISO-8859-15,ISO-8859-16,windows-1250,windows-1251,windows-1252,wind
+    Connection: keep-alive\r\n
+    \r\n
+    [Full request URI: http://10.0.0.1/]
+    [HTTP request 1/1]
+    [Response in frame: 6]
+
+No.     Time           Source                Destination           Protocol Length Info
+      5 0.000122       10.0.0.1              10.0.0.2              TCP      66     80 → 49194 [ACK] Seq=1 Ack=600 Win=31872 Len=0 TSval=1476619989 TSecr=753285918
+
+Frame 5: 66 bytes on wire (528 bits), 66 bytes captured (528 bits)
+Ethernet II, Src: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c), Dst: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c)
+Internet Protocol Version 4, Src: 10.0.0.1, Dst: 10.0.0.2
+Transmission Control Protocol, Src Port: 80, Dst Port: 49194, Seq: 1, Ack: 600, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+      6 0.000323       10.0.0.1              10.0.0.2              HTTP     597    HTTP/1.1 200 OK  (text/html)
+
+Frame 6: 597 bytes on wire (4776 bits), 597 bytes captured (4776 bits)
+Ethernet II, Src: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c), Dst: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c)
+Internet Protocol Version 4, Src: 10.0.0.1, Dst: 10.0.0.2
+Transmission Control Protocol, Src Port: 80, Dst Port: 49194, Seq: 1, Ack: 600, Len: 531
+Hypertext Transfer Protocol
+    HTTP/1.1 200 OK\r\n
+    Date: Mon, 12 Feb 2024 16:12:30 GMT\r\n
+    Server: Apache/2.4.57 (Debian)\r\n
+    Last-Modified: Mon, 12 Feb 2024 16:06:49 GMT\r\n
+    ETag: "228-611317711f840-gzip"\r\n
+    Accept-Ranges: bytes\r\n
+    Vary: Accept-Encoding\r\n
+    Content-Encoding: gzip\r\n
+    Content-Length: 194\r\n
+    Keep-Alive: timeout=5, max=100\r\n
+    Connection: Keep-Alive\r\n
+    Content-Type: text/html\r\n
+    \r\n
+    [HTTP response 1/1]
+    [Time since request: 0.000231000 seconds]
+    [Request in frame: 4]
+    [Request URI: http://10.0.0.1/]
+    Content-encoded entity body (gzip): 194 bytes -> 552 bytes
+    File Data: 552 bytes
+Line-based text data: text/html (30 lines)
+    <html>\n
+    <body>\n
+    \n
+    Hello!\n
+    \n
+    <pre>\n
+                    ___\n
+                   /   \\n
+                  |  o  |\n
+                   \   /\n
+            ________) (________\n
+           |                   |\n
+           '------.     .------'\n
+                   |   |\n
+                   |   |\n
+                   |   |\n
+                   |   |\n
+        /\         |   |         /\\n
+       /_ \        /   \        / _\\n
+         \ '.    .'     '.    .' /\n
+          \  '--'         '--'  /\n
+           '.                 .'\n
+             '._           _.'\n
+                `'-.   .-'`\n
+                    \ /\n
+                     `\n
+    </pre>\n
+    \n
+    </body>\n
+    </html>\n
+
+No.     Time           Source                Destination           Protocol Length Info
+      7 0.000357       10.0.0.2              10.0.0.1              TCP      66     49194 → 80 [ACK] Seq=600 Ack=532 Win=31872 Len=0 TSval=753285918 TSecr=1476619989
+
+Frame 7: 66 bytes on wire (528 bits), 66 bytes captured (528 bits)
+Ethernet II, Src: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c), Dst: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c)
+Internet Protocol Version 4, Src: 10.0.0.2, Dst: 10.0.0.1
+Transmission Control Protocol, Src Port: 49194, Dst Port: 80, Seq: 600, Ack: 532, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+      8 5.005213       10.0.0.1              10.0.0.2              TCP      66     80 → 49194 [FIN, ACK] Seq=532 Ack=600 Win=31872 Len=0 TSval=1476624994 TSecr=753285918
+
+Frame 8: 66 bytes on wire (528 bits), 66 bytes captured (528 bits)
+Ethernet II, Src: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c), Dst: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c)
+Internet Protocol Version 4, Src: 10.0.0.1, Dst: 10.0.0.2
+Transmission Control Protocol, Src Port: 80, Dst Port: 49194, Seq: 532, Ack: 600, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+      9 5.025164       26:3b:c7:d3:b4:6c     1e:8b:6f:5a:df:9c     ARP      60     Who has 10.0.0.1? Tell 10.0.0.2
+
+Frame 9: 60 bytes on wire (480 bits), 60 bytes captured (480 bits)
+Ethernet II, Src: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c), Dst: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c)
+Address Resolution Protocol (request)
+
+No.     Time           Source                Destination           Protocol Length Info
+     10 5.025204       1e:8b:6f:5a:df:9c     26:3b:c7:d3:b4:6c     ARP      60     10.0.0.1 is at 1e:8b:6f:5a:df:9c
+
+Frame 10: 60 bytes on wire (480 bits), 60 bytes captured (480 bits)
+Ethernet II, Src: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c), Dst: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c)
+Address Resolution Protocol (reply)
+
+No.     Time           Source                Destination           Protocol Length Info
+     11 5.051822       10.0.0.2              10.0.0.1              TCP      66     49194 → 80 [ACK] Seq=600 Ack=533 Win=31872 Len=0 TSval=753290970 TSecr=1476624994
+
+Frame 11: 66 bytes on wire (528 bits), 66 bytes captured (528 bits)
+Ethernet II, Src: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c), Dst: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c)
+Internet Protocol Version 4, Src: 10.0.0.2, Dst: 10.0.0.1
+Transmission Control Protocol, Src Port: 49194, Dst Port: 80, Seq: 600, Ack: 533, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+     12 20.001853      10.0.0.2              10.0.0.1              TCP      66     49194 → 80 [FIN, ACK] Seq=600 Ack=533 Win=31872 Len=0 TSval=753305920 TSecr=1476624994
+
+Frame 12: 66 bytes on wire (528 bits), 66 bytes captured (528 bits)
+Ethernet II, Src: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c), Dst: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c)
+Internet Protocol Version 4, Src: 10.0.0.2, Dst: 10.0.0.1
+Transmission Control Protocol, Src Port: 49194, Dst Port: 80, Seq: 600, Ack: 533, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+     13 20.001889      10.0.0.1              10.0.0.2              TCP      66     80 → 49194 [ACK] Seq=533 Ack=601 Win=31872 Len=0 TSval=1476639991 TSecr=753305920
+
+Frame 13: 66 bytes on wire (528 bits), 66 bytes captured (528 bits)
+Ethernet II, Src: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c), Dst: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c)
+Internet Protocol Version 4, Src: 10.0.0.1, Dst: 10.0.0.2
+Transmission Control Protocol, Src Port: 80, Dst Port: 49194, Seq: 533, Ack: 601, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+     14 27.417538      10.0.0.2              10.0.0.1              TCP      74     36622 → 80 [SYN] Seq=0 Win=32120 Len=0 MSS=1460 SACK_PERM TSval=753313336 TSecr=0 WS=128
+
+Frame 14: 74 bytes on wire (592 bits), 74 bytes captured (592 bits)
+Ethernet II, Src: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c), Dst: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c)
+Internet Protocol Version 4, Src: 10.0.0.2, Dst: 10.0.0.1
+Transmission Control Protocol, Src Port: 36622, Dst Port: 80, Seq: 0, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+     15 27.417557      10.0.0.1              10.0.0.2              TCP      74     80 → 36622 [SYN, ACK] Seq=0 Ack=1 Win=31856 Len=0 MSS=1460 SACK_PERM TSval=1476647407 TSecr=753313336 WS=128
+
+Frame 15: 74 bytes on wire (592 bits), 74 bytes captured (592 bits)
+Ethernet II, Src: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c), Dst: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c)
+Internet Protocol Version 4, Src: 10.0.0.1, Dst: 10.0.0.2
+Transmission Control Protocol, Src Port: 80, Dst Port: 36622, Seq: 0, Ack: 1, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+     16 27.417586      10.0.0.2              10.0.0.1              TCP      66     36622 → 80 [ACK] Seq=1 Ack=1 Win=32128 Len=0 TSval=753313336 TSecr=1476647407
+
+Frame 16: 66 bytes on wire (528 bits), 66 bytes captured (528 bits)
+Ethernet II, Src: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c), Dst: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c)
+Internet Protocol Version 4, Src: 10.0.0.2, Dst: 10.0.0.1
+Transmission Control Protocol, Src Port: 36622, Dst Port: 80, Seq: 1, Ack: 1, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+     17 27.417620      10.0.0.2              10.0.0.1              HTTP     679    GET /not_found.html HTTP/1.1 
+
+Frame 17: 679 bytes on wire (5432 bits), 679 bytes captured (5432 bits)
+Ethernet II, Src: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c), Dst: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c)
+Internet Protocol Version 4, Src: 10.0.0.2, Dst: 10.0.0.1
+Transmission Control Protocol, Src Port: 36622, Dst Port: 80, Seq: 1, Ack: 1, Len: 613
+Hypertext Transfer Protocol
+    GET /not_found.html HTTP/1.1\r\n
+    Host: 10.0.0.1\r\n
+    User-Agent: Links (2.28; Linux 6.7.4-arch1-1 x86_64; GNU C 12.2; text)\r\n
+    Accept: */*\r\n
+    Accept-Language: en,*;q=0.1\r\n
+    Accept-Encoding: gzip, deflate, br, zstd, bzip2, lzma, lzma2, lzip\r\n
+     [truncated]Accept-Charset: us-ascii,ISO-8859-1,ISO-8859-2,ISO-8859-3,ISO-8859-4,ISO-8859-5,ISO-8859-6,ISO-8859-7,ISO-8859-8,ISO-8859-9,ISO-8859-10,ISO-8859-13,ISO-8859-14,ISO-8859-15,ISO-8859-16,windows-1250,windows-1251,windows-1252,wind
+    Connection: keep-alive\r\n
+    \r\n
+    [Full request URI: http://10.0.0.1/not_found.html]
+    [HTTP request 1/1]
+    [Response in frame: 19]
+
+No.     Time           Source                Destination           Protocol Length Info
+     18 27.417651      10.0.0.1              10.0.0.2              TCP      66     80 → 36622 [ACK] Seq=1 Ack=614 Win=31872 Len=0 TSval=1476647407 TSecr=753313336
+
+Frame 18: 66 bytes on wire (528 bits), 66 bytes captured (528 bits)
+Ethernet II, Src: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c), Dst: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c)
+Internet Protocol Version 4, Src: 10.0.0.1, Dst: 10.0.0.2
+Transmission Control Protocol, Src Port: 80, Dst Port: 36622, Seq: 1, Ack: 614, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+     19 27.417878      10.0.0.1              10.0.0.2              HTTP     553    HTTP/1.1 404 Not Found  (text/html)
+
+Frame 19: 553 bytes on wire (4424 bits), 553 bytes captured (4424 bits)
+Ethernet II, Src: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c), Dst: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c)
+Internet Protocol Version 4, Src: 10.0.0.1, Dst: 10.0.0.2
+Transmission Control Protocol, Src Port: 80, Dst Port: 36622, Seq: 1, Ack: 614, Len: 487
+Hypertext Transfer Protocol
+    HTTP/1.1 404 Not Found\r\n
+    Date: Mon, 12 Feb 2024 16:12:58 GMT\r\n
+    Server: Apache/2.4.57 (Debian)\r\n
+    Content-Length: 270\r\n
+    Keep-Alive: timeout=5, max=100\r\n
+    Connection: Keep-Alive\r\n
+    Content-Type: text/html; charset=iso-8859-1\r\n
+    \r\n
+    [HTTP response 1/1]
+    [Time since request: 0.000258000 seconds]
+    [Request in frame: 17]
+    [Request URI: http://10.0.0.1/not_found.html]
+    File Data: 270 bytes
+Line-based text data: text/html (9 lines)
+    <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">\n
+    <html><head>\n
+    <title>404 Not Found</title>\n
+    </head><body>\n
+    <h1>Not Found</h1>\n
+    <p>The requested URL was not found on this server.</p>\n
+    <hr>\n
+    <address>Apache/2.4.57 (Debian) Server at 10.0.0.1 Port 80</address>\n
+    </body></html>\n
+
+No.     Time           Source                Destination           Protocol Length Info
+     20 27.417906      10.0.0.2              10.0.0.1              TCP      66     36622 → 80 [ACK] Seq=614 Ack=488 Win=31872 Len=0 TSval=753313336 TSecr=1476647407
+
+Frame 20: 66 bytes on wire (528 bits), 66 bytes captured (528 bits)
+Ethernet II, Src: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c), Dst: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c)
+Internet Protocol Version 4, Src: 10.0.0.2, Dst: 10.0.0.1
+Transmission Control Protocol, Src Port: 36622, Dst Port: 80, Seq: 614, Ack: 488, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+     21 32.421890      10.0.0.1              10.0.0.2              TCP      66     80 → 36622 [FIN, ACK] Seq=488 Ack=614 Win=31872 Len=0 TSval=1476652411 TSecr=753313336
+
+Frame 21: 66 bytes on wire (528 bits), 66 bytes captured (528 bits)
+Ethernet II, Src: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c), Dst: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c)
+Internet Protocol Version 4, Src: 10.0.0.1, Dst: 10.0.0.2
+Transmission Control Protocol, Src Port: 80, Dst Port: 36622, Seq: 488, Ack: 614, Len: 0
+
+No.     Time           Source                Destination           Protocol Length Info
+     22 32.468492      10.0.0.2              10.0.0.1              TCP      66     36622 → 80 [ACK] Seq=614 Ack=489 Win=31872 Len=0 TSval=753318387 TSecr=1476652411
+
+Frame 22: 66 bytes on wire (528 bits), 66 bytes captured (528 bits)
+Ethernet II, Src: 26:3b:c7:d3:b4:6c (26:3b:c7:d3:b4:6c), Dst: 1e:8b:6f:5a:df:9c (1e:8b:6f:5a:df:9c)
+Internet Protocol Version 4, Src: 10.0.0.2, Dst: 10.0.0.1
+Transmission Control Protocol, Src Port: 36622, Dst Port: 80, Seq: 614, Ack: 489, Len: 0
