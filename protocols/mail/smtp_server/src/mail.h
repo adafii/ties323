@@ -15,7 +15,7 @@ using recipient = user;
 struct mail {
     user from{};
     std::unordered_set<recipient> recipients{};
-    std::string message{};
+    std::vector<std::string> message{};
 };
 
 /**
@@ -27,7 +27,7 @@ struct maildrop {
 };
 
 /**
- * Volatile storage for mail
+ * Volatile storage for recipients
  */
 struct mail_storage {
     std::unordered_map<recipient, maildrop> maildrops;
