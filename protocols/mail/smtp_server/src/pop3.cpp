@@ -9,16 +9,6 @@
 using std::literals::string_view_literals::operator""sv;
 
 namespace {
-constexpr auto negative = "-ERR"sv;
-constexpr auto no_user = "-ERR no such user here"sv;
-constexpr auto already_locked = "-ERR mail-drop already locked"sv;
-constexpr auto positive = "+OK"sv;
-constexpr auto list_ok = "+OK {} messages ({} octets)"sv;
-constexpr auto list_one = "+OK {} {}"sv;
-constexpr auto greeting = "+OK POP3 server ready"sv;
-constexpr auto quitting = "+OK POP3 server signing off"sv;
-constexpr auto list_entry = "{} {}"sv;
-constexpr auto list_end = "."sv;
 
 enum class session_state {
     greeting,
@@ -35,6 +25,17 @@ enum class command {
     unknown,
 };
 
+constexpr auto negative = "-ERR"sv;
+constexpr auto no_user = "-ERR no such user here"sv;
+constexpr auto already_locked = "-ERR mail-drop already locked"sv;
+constexpr auto positive = "+OK"sv;
+constexpr auto list_ok = "+OK {} messages ({} octets)"sv;
+constexpr auto list_one = "+OK {} {}"sv;
+constexpr auto greeting = "+OK POP3 server ready"sv;
+constexpr auto quitting = "+OK POP3 server signing off"sv;
+constexpr auto list_entry = "{} {}"sv;
+constexpr auto list_end = "."sv;
+
 const auto command_parser = std::vector<std::pair<std::regex, command>>{
     {std::regex{R"(^user ([a-z0-9]+\.)*[a-z0-9]+(@([a-z0-9]+\.)*[a-z0-9]+)?$)", std::regex::icase}, command::user},
     {std::regex{R"(^pass \S+$)", std::regex::icase}, command::pass},
@@ -43,7 +44,7 @@ const auto command_parser = std::vector<std::pair<std::regex, command>>{
 };
 
 command parse_request(std::string const& response) {
-    for (auto const& [regex, command] : command_parser) {
+    for (const auto& [regex, command] : command_parser) {
         if (std::regex_match(response, regex)) {
             return command;
         }
@@ -141,7 +142,7 @@ asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr
                             }
 
                             co_await write_data(socket, positive);
-                            pass = get_argument(request);
+                            // pass = get_argument(request);
                             current_transaction.swap(try_transaction);
                             state = session_state::transaction;
                             break;
@@ -165,11 +166,11 @@ asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr
 
                     switch (command) {
                         case command::list: {
-                            auto const& mails = storage->maildrops[user].mails;
+                            const auto& mails = storage->maildrops[user].mails;
                             auto mail_num = mails.size();
                             auto octets =
                                 std::accumulate(mails.at("INBOX").begin(), mails.at("INBOX").end(), 0,
-                                                [](auto acc, auto const& mail) { return acc + mail.message.size(); });
+                                                [](auto acc, const auto& mail) { return acc + mail.message.size(); });
 
                             if (auto list_one_message = get_argument(request); !list_one_message.empty()) {
                                 uint32_t message_num = 0;

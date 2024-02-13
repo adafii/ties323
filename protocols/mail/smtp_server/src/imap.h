@@ -5,7 +5,7 @@
 #include <unordered_set>
 
 /**
- * @brief POP3 session manager
+ * @brief IMAP session manager
  * @param socket TCP socket for the session
  * @param storage Mail storage
  */

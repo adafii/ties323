@@ -9,14 +9,6 @@ using std::literals::string_view_literals::operator""sv;
 
 namespace {
 
-constexpr auto greeting = "* OK {} IMAP4 Server"sv;
-constexpr auto no = "{} NO"sv;
-constexpr auto ok = "{} OK"sv;
-constexpr auto bad_tag = "{} BAD"sv;
-constexpr auto bad = "* BAD"sv;
-constexpr auto bye = "* BYE"sv;
-constexpr auto list = R"-(* LIST () "{}" "{}")-"sv;
-
 enum class session_state {
     greeting,
     unauthenticated,
@@ -32,20 +24,28 @@ enum class command {
     unknown,
 };
 
+constexpr auto greeting = "* OK {} IMAP4 Server"sv;
+constexpr auto no = "{} NO"sv;
+constexpr auto ok = "{} OK"sv;
+constexpr auto bad_tag = "{} BAD"sv;
+constexpr auto bad = "* BAD"sv;
+constexpr auto bye = "* BYE"sv;
+constexpr auto list = R"-(* LIST () "{}" "{}")-"sv;
+
+// clang-format off
 const auto command_parser = std::vector<std::pair<std::regex, command>>{
     {{std::regex(R"-(^(\w+) login (\S+) (\S+)$)-", std::regex::icase)}, command::login},
-    {{std::regex(R"-(^(\w+) list (?:"([ \.\/\-\*_\w]*)"|([\.\/\-\*_\w]+)) (?:"([ \.\/\-\*_\w]+)"|([\.\/\-\*_\w]+))$)-",
-                 std::regex::icase)},
-     command::list},
+    {{std::regex(R"-(^(\w+) list (?:"([ \.\/\-\*_\w]*)"|([\.\/\-\*_\w]+)) (?:"([ \.\/\-\*_\w]+)"|([\.\/\-\*_\w]+))$)-", std::regex::icase)}, command::list},
     {{std::regex(R"-(^(\w+) logout$)-", std::regex::icase)}, command::logout},
     {{std::regex(R"-(^(\w+).*$)-", std::regex::icase)}, command::tag_unknown},
     {{std::regex(R"-(^.*$)-", std::regex::icase)}, command::unknown},
 };
+// clang-format on
 
 std::pair<command, std::smatch> parse_request(std::string const& response) {
     std::smatch submatch{};
 
-    for (auto const& [regex, command] : command_parser) {
+    for (const auto& [regex, command] : command_parser) {
         if (std::regex_match(response, submatch, regex)) {
             return {command, submatch};
         }
@@ -87,7 +87,7 @@ asio::awaitable<void> imap_session(asio::ip::tcp::socket socket, std::shared_ptr
                 }
                 case session_state::unauthenticated: {
                     auto request = co_await read_data(socket);
-                    auto const [command, arguments] = parse_request(request);
+                    const auto [command, arguments] = parse_request(request);
 
                     switch (command) {
                         case command::login: {
@@ -107,7 +107,7 @@ asio::awaitable<void> imap_session(asio::ip::tcp::socket socket, std::shared_ptr
                             // Skip password check
 
                             user = tried_user;
-                            //pass = tried_pass;
+                            // pass = tried_pass;
 
                             co_await write_data(socket, std::format(ok, tag));
                             state = session_state::authenticated;
@@ -134,7 +134,7 @@ asio::awaitable<void> imap_session(asio::ip::tcp::socket socket, std::shared_ptr
                 }
                 case session_state::authenticated: {
                     auto request = co_await read_data(socket);
-                    auto const [command, arguments] = parse_request(request);
+                    const auto [command, arguments] = parse_request(request);
 
                     switch (command) {
                         case command::list: {

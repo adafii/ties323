@@ -11,7 +11,8 @@ asio::awaitable<void> listener(
     std::shared_ptr<mail_storage> storage) {
     for (;;) {
         auto socket = co_await acceptor.async_accept(asio::use_awaitable);
-        co_spawn(socket.get_executor(), session_manager(std::move(socket), storage), asio::detached);
+        const auto& executor = socket.get_executor();
+        co_spawn(executor, session_manager(std::move(socket), storage), asio::detached);
     }
 }
 

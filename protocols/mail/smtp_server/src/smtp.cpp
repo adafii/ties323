@@ -71,12 +71,12 @@ const auto request_parser = std::vector<std::pair<const std::regex, const comman
 
 const auto is_local_regexp = std::regex{std::format("@{}", host_name), std::regex::icase};
 constexpr auto is_local = [](const auto& recipient) { return std::regex_search(recipient, is_local_regexp); };
-constexpr auto is_invalid = [](const auto& arguments){ return !arguments.str(arguments.size() - 1).empty(); };
+constexpr auto is_invalid = [](const auto& arguments) { return !arguments.str(arguments.size() - 1).empty(); };
 
 template <typename... Args>
 std::string make_reply(reply_code code, Args... args) {
     if (code == 250 && sizeof...(args) == 0) {
-        return make_reply(250, "OK");
+        return make_reply(250, ok);
     }
 
     return std::vformat(replies.at(code), std::make_format_args(code, args...));
@@ -85,7 +85,7 @@ std::string make_reply(reply_code code, Args... args) {
 std::pair<command, std::smatch> parse_request(std::string const& response) {
     std::smatch submatch{};
 
-    for (auto const& [regex, command] : request_parser) {
+    for (const auto& [regex, command] : request_parser) {
         if (std::regex_match(response, submatch, regex)) {
             return {command, submatch};
         }
@@ -140,8 +140,8 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket, std::shared_ptr
                     break;
                 }
                 case session_state::wait_helo: {
-                    auto const request = co_await read_data(socket);
-                    auto const [command, arguments] = parse_request(request);
+                    const auto request = co_await read_data(socket);
+                    const auto [command, arguments] = parse_request(request);
 
                     switch (command) {
                         case command::helo:
@@ -170,8 +170,8 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket, std::shared_ptr
                     break;
                 }
                 case session_state::init_transaction: {
-                    auto const request = co_await read_data(socket);
-                    auto const [command, arguments] = parse_request(request);
+                    const auto request = co_await read_data(socket);
+                    const auto [command, arguments] = parse_request(request);
 
                     current_mail = mail{};
 
@@ -209,8 +209,8 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket, std::shared_ptr
                     break;
                 }
                 case session_state::recipients: {
-                    auto const request = co_await read_data(socket);
-                    auto const [command, arguments] = parse_request(request);
+                    const auto request = co_await read_data(socket);
+                    const auto [command, arguments] = parse_request(request);
 
                     switch (command) {
                         case command::rcpt:
@@ -228,7 +228,6 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket, std::shared_ptr
                                 break;
                             }
 
-                            co_await write_data(socket, make_reply(354));
                             state = session_state::data;
                             break;
                         case command::helo:
@@ -246,6 +245,7 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket, std::shared_ptr
                     break;
                 }
                 case session_state::data: {
+                    co_await write_data(socket, make_reply(354));
                     auto data = co_await read_multiple_lines(socket);
 
                     current_mail.message = data;
@@ -253,7 +253,7 @@ asio::awaitable<void> smtp_session(asio::ip::tcp::socket socket, std::shared_ptr
                     {
                         const auto lock = std::lock_guard<std::mutex>{storage->write_lock};
 
-                        for (auto const& recipient : current_mail.recipients | std::views::filter(is_local)) {
+                        for (const auto& recipient : current_mail.recipients | std::views::filter(is_local)) {
                             storage->maildrops[recipient].mails["INBOX"].push_back(current_mail);
                         }
                     }
