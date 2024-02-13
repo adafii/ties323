@@ -23,3 +23,4 @@ SMTP, POP3, and IMAP servers are run within a single process, which allows them 
 
 - [x] [Web server](/kathara/web_server)
 - [x] [DNS](/kathara/dns)
+- [x] [Walkthrough](/kathara/walkthrough)
