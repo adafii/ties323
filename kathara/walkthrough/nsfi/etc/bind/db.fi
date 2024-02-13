@@ -1,0 +1,12 @@
+$TTL   60000
+@                   IN      SOA     ns.fi.    hostmaster.ns.fi. (
+                                        2006031201 ; serial
+                                        28800 ; refresh
+                                        14400 ; retry
+                                        3600000 ; expire
+                                        0 ; negative cache ttl
+                                    )
+@                   IN      NS      ns.fi.
+ns.fi.              IN      A       100.1.1.2
+
+pc2.fi.             IN      A       100.1.2.2

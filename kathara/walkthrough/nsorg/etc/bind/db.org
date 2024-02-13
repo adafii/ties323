@@ -1,0 +1,13 @@
+$TTL   60000
+@                   IN      SOA     ns.org.    hostmaster.ns.org. (
+                                        2006031201 ; serial
+                                        28800 ; refresh
+                                        14400 ; retry
+                                        3600000 ; expire
+                                        0 ; negative cache ttl
+                                    )
+@                   IN      NS      ns.org.
+ns.org.             IN      A       100.0.1.2
+
+jyu.org.            IN      NS      ns.jyu.org.
+ns.jyu.org.         IN      A       100.0.4.2

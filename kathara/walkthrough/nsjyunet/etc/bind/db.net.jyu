@@ -1,0 +1,13 @@
+$TTL    60000
+@                       IN      SOA     ns.jyu.net.    hostmaster.ns.jyu.net. (
+                                            2006031201 ; serial
+                                            28 ; refresh
+                                            14 ; retry
+                                            3600000 ; expire
+                                            0 ; negative cache ttl
+                                        )
+
+@                       IN      NS      ns.jyu.net.
+ns.jyu.net.             IN      A       100.2.4.2
+
+server.jyu.net.         IN      A       100.2.3.2
