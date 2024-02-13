@@ -1,11 +1,17 @@
 # Web server
 
-## Packet capture
+The lab is [here](https://github.com/KatharaFramework/Kathara-Labs/tree/main/main-labs/application-level/web-server).
+
+### Packet capture
 
 - [pcap-file](shared/monitor.pcap) from the third node (10.0.0.3)
 - [pcap as text](shared/monitor.txt)
 
-## Server logs
+### Screen capture
+
+![screenshot](screenshots/1.png)
+
+### Server logs
 
 - [access log](shared/access.log), which shows both successful and failed page requests
 - [error log](shared/error.log) - server error log, nothing really interesting here

@@ -1,0 +1,13 @@
+$TTL   60000
+@               IN      SOA     dnsfi.fi.    hostmaster.dnsfi.fi. (
+                        2006031201 ; serial
+                        28800 ; refresh
+                        14400 ; retry
+                        3600000 ; expire
+                        0 ; negative cache ttl
+                        )
+@                       IN      NS      dnsfi.fi.
+dnsfi.fi.               IN      A       192.168.0.3
+
+oru.fi.                 IN      NS      dnsoru.oru.fi.
+dnsoru.oru.fi.          IN      A       192.168.0.33

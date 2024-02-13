@@ -1,0 +1,14 @@
+$TTL    60000
+@               IN      SOA     dnsoru.oru.fi.    hostmaster.dnsoru.oru.fi. (
+						2006031201 ; serial
+						28 ; refresh
+						14 ; retry
+						3600000 ; expire
+						0 ; negative cache ttl
+						)
+
+@						IN	NS	dnsoru.oru.fi.
+dnsoru.oru.fi.  		IN	A	192.168.0.33
+
+pc3.oru.fi.		        IN	A	192.168.0.133
+localoru.oru.fi.	    IN	A	192.168.0.130
