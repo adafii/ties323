@@ -15,9 +15,10 @@ SMTP, POP3, and IMAP servers are run within a single process, which allows them 
 - [x] [Inbox for SMTP server; POP3 server](/protocols/mail/smtp_server)
 - [x] [IMAP client](/protocols/mail/imap_client)
 - [x] [IMAP server](/protocols/mail/smtp_server)
-- [ ] Extra features (2/3)
+- [x] Extra features
     - POP3 client has TLS option
-    - Parallelized multi-user SMTP/POP3 server with transaction locking for POP3
+    - POP3 client has GUI
+    - Parallelized multi-user SMTP/POP3/IMAP server with transaction locking for POP3
 
 ## Kathará
 
