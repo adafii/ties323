@@ -20,14 +20,16 @@ int main() {
     auto storage = std::make_shared<mail_storage>();
 
     // Mock data
-    storage->maildrops["liia@localhost"].mails["INBOX"].push_back(
-        {.from{"test@localhost"},
-         .recipients{"test@localhost"},
-         .message{
-             "To: liia@localhost\r\nFrom: test@localhost\r\nSubject: Greetings\r\n\r\nHello, from SMTP\r\n.\r\n"}});
+    storage->maildrops["liia@localhost"].mails["INBOX"].push_back({.from{"test@localhost"},
+                                                                   .recipients{"test@localhost"},
+                                                                   .message{{"Date: today"},
+                                                                            {"To: liia@localhost"},
+                                                                            {"From: test@localhost"},
+                                                                            {"Subject: Greetings"},
+                                                                            {""},
+                                                                            {"Hello, from SMTP"},
+                                                                            {"."}}});
     storage->maildrops["liia@localhost"].mails["Sent"].push_back({});
-    storage->maildrops["liia@localhost"].mails["Junk"].push_back({});
-
     storage->maildrops["test@localhost"].mails["INBOX"].push_back({});
 
     try {

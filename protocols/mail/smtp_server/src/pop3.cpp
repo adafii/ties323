@@ -36,31 +36,28 @@ constexpr auto quitting = "+OK POP3 server signing off"sv;
 constexpr auto list_entry = "{} {}"sv;
 constexpr auto list_end = "."sv;
 
+const auto get_message_size = [](const std::vector<std::string>& message) {
+    return std::accumulate(message.begin(), message.end(), 0ul,
+                           [](auto acc, const auto& line) { return acc + line.size(); });
+};
+
 const auto command_parser = std::vector<std::pair<std::regex, command>>{
-    {std::regex{R"(^user ([a-z0-9]+\.)*[a-z0-9]+(@([a-z0-9]+\.)*[a-z0-9]+)?$)", std::regex::icase}, command::user},
+    {std::regex{R"(^user ((?:[a-z][a-z0-9]*\.)*(?:[a-z][a-z0-9]*)@(?:[a-z][a-z0-9]*\.)*(?:[a-z][a-z0-9]*))$)", std::regex::icase}, command::user},
     {std::regex{R"(^pass \S+$)", std::regex::icase}, command::pass},
-    {std::regex{R"(^list( [0-9]*)?$)", std::regex::icase}, command::list},
+    {std::regex{R"(^list(?: ([0-9]+))?$)", std::regex::icase}, command::list},
     {std::regex{R"(^quit$)", std::regex::icase}, command::quit},
 };
 
-command parse_request(std::string const& response) {
+std::pair<command, std::smatch> parse_request(std::string const& response) {
+    std::smatch submatch{};
+
     for (const auto& [regex, command] : command_parser) {
-        if (std::regex_match(response, regex)) {
-            return command;
+        if (std::regex_match(response, submatch, regex)) {
+            return {command, submatch};
         }
     }
 
-    return command::unknown;
-}
-
-std::string get_argument(std::string const& response) {
-    auto space = response.find_first_of(' ');
-
-    if (space == std::string::npos) {
-        return {};
-    }
-
-    return response.substr(space + 1);
+    return {command::unknown, submatch};
 }
 
 asio::awaitable<void> write_data(asio::ip::tcp::socket& socket, std::string_view data) {
@@ -77,6 +74,7 @@ asio::awaitable<std::string> read_data(asio::ip::tcp::socket& socket) {
 
     co_return response;
 }
+
 }  // namespace
 
 asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr<mail_storage> storage) {
@@ -97,7 +95,7 @@ asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr
                 }
                 case session_state::authorization: {
                     auto request = co_await read_data(socket);
-                    auto command = parse_request(request);
+                    auto [command, arguments] = parse_request(request);
 
                     switch (command) {
                         case command::user: {
@@ -106,12 +104,7 @@ asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr
                                 break;
                             }
 
-                            auto tried_user = get_argument(request);
-
-                            if (tried_user.find('@') == std::string::npos) {
-                                tried_user.append(std::format("@{}", host_name));
-                            }
-
+                            auto tried_user = arguments.str(1);
                             auto maildrop = storage->maildrops.find(tried_user);
 
                             if (maildrop == storage->maildrops.end()) {
@@ -162,39 +155,36 @@ asio::awaitable<void> pop3_session(asio::ip::tcp::socket socket, std::shared_ptr
                 }
                 case session_state::transaction: {
                     auto request = co_await read_data(socket);
-                    auto command = parse_request(request);
+                    auto [command, arguments] = parse_request(request);
 
                     switch (command) {
                         case command::list: {
                             const auto& mails = storage->maildrops[user].mails;
-                            auto mail_num = mails.size();
-                            auto octets =
-                                std::accumulate(mails.at("INBOX").begin(), mails.at("INBOX").end(), 0,
-                                                [](auto acc, const auto& mail) { return acc + mail.message.size(); });
+                            auto mail_num = mails.at("INBOX").size();
 
-                            if (auto list_one_message = get_argument(request); !list_one_message.empty()) {
-                                uint32_t message_num = 0;
-                                try {
-                                    message_num = std::stoi(list_one_message);
-                                } catch (std::exception& ex) {
-                                }
+                            if (!arguments.str(1).empty()) {
+                                uint32_t message_num = std::stoi(arguments.str(1));
 
                                 if (message_num < 1 || message_num > static_cast<uint32_t>(mail_num)) {
                                     co_await write_data(socket, negative);
                                     break;
                                 }
 
-                                co_await write_data(socket,
-                                                    std::format(list_one, message_num,
-                                                                mails.at("INBOX")[message_num - 1].message.size()));
+                                co_await write_data(
+                                    socket, std::format(list_one, message_num,
+                                                        get_message_size(mails.at("INBOX")[message_num - 1].message)));
                                 break;
                             }
 
+                            auto octets = std::accumulate(
+                                mails.at("INBOX").begin(), mails.at("INBOX").end(), 0,
+                                [](auto acc, const auto& mail) { return acc + get_message_size(mail.message); });
+
                             co_await write_data(socket, std::format(list_ok, mail_num, octets));
 
-                            for (std::size_t i = 0; i < mails.size(); ++i) {
-                                co_await write_data(
-                                    socket, std::format(list_entry, i + 1, mails.at("INBOX")[i].message.size()));
+                            for (std::size_t i = 0; i < mails.at("INBOX").size(); ++i) {
+                                const auto& message = mails.at("INBOX")[i].message;
+                                co_await write_data(socket, std::format(list_entry, i + 1, get_message_size(message)));
                             }
 
                             co_await write_data(socket, list_end);
