@@ -1,18 +1,20 @@
 #include "asio.hpp"
-#include "asio/experimental/awaitable_operators.hpp"
 #include "client.h"
 #include "utils.h"
 #include <chrono>
 #include <iostream>
 
-asio::awaitable<asio::error_code> init_client(const auto& host, const auto& port) {
-    auto [error, socket] = co_await ftpc::connect_with_timeout(host, port);
+asio::awaitable<asio::error_code> init_client(std::string_view user,
+                                              std::string_view password,
+                                              const auto& host,
+                                              const auto& port) {
+    auto [error, socket] = co_await ftpc::connect_with_timeout(host, port, std::chrono::milliseconds{500});
 
-    if(error) {
+    if (error) {
         co_return error;
     }
 
-    co_return asio::error_code{co_await ftpc::client(std::move(socket))};
+    co_return co_await ftpc::client(std::move(socket), user, password);
 }
 
 int main(int argc, char* argv[]) {
@@ -34,17 +36,18 @@ int main(int argc, char* argv[]) {
         auto signals = asio::signal_set{io_context, SIGINT, SIGTERM};
         signals.async_wait([&](auto, auto) { io_context.stop(); });
 
-        asio::co_spawn(io_context, init_client(host, port), [&io_context](auto exception, const auto& error) {
-            if (exception) {
-                std::rethrow_exception(exception);
-            }
+        asio::co_spawn(io_context, init_client(user, password, host, port),
+                       [&io_context](auto exception, const auto& error) {
+                           if (exception) {
+                               std::rethrow_exception(exception);
+                           }
 
-            if(error) {
-                std::cerr << error.message() << '\n';
-            }
+                           if (error) {
+                               std::cerr << error.message() << '\n';
+                           }
 
-            io_context.stop();
-        });
+                           io_context.stop();
+                       });
 
         io_context.run();
 
@@ -55,4 +58,3 @@ int main(int argc, char* argv[]) {
 
     return EXIT_SUCCESS;
 }
-
