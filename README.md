@@ -4,7 +4,7 @@ The assignments are [here](http://users.jyu.fi/~arjuvi/opetus/ties323/2018/demot
 
 ## Application protocol implementations
 
-Compiling requires Linux, CMake (>= 3.18), OpenSSL library (>= 3.2?), and [stand-alone Asio C++ library](https://think-async.com/Asio/) (>= 1.28).
+Compiling requires Linux, CMake (>= 3.18), OpenSSL library (>= 3.2?), and [stand-alone Asio C++ library](https://think-async.com/Asio/) (>= 1.28). POP3 client also requires Dear ImGui library for gui, which is included as a git submodule.
 
 ### Mail protocols
 
@@ -19,6 +19,14 @@ SMTP, POP3, and IMAP servers are run within a single process, which allows them 
     - POP3 client has TLS option
     - POP3 client has GUI
     - Parallelized multi-user SMTP/POP3/IMAP server with transaction locking for POP3
+
+### File transfer protocols
+
+- [x] [FTP client](/protocols/ftp/ftp_client)
+- [ ] TFTP client
+- [ ] TFTP server
+- [ ] RRQ and WRQ for TFTP client and server
+- [ ] Various enhancements
 
 ## Kathará
 
