@@ -1,0 +1,57 @@
+<html><head>
+    <title>CGI Test</title></head>
+
+    <h1>CGI Test</h1>
+
+This page allows the user to experiment the different techniques
+for passing arguments to a CGI application, considering different
+scenarios in which the application could be invoked. 
+
+
+<hr>
+<h3> Scenario 1: direct link to the CGI </h3>
+<a href="/cgi-enabled/test.sh?foo+bar+baz">
+This link</a> invokes the CGI /cgi-bin/test.sh with arguments &quot;foo&quot;, &quot;bar&quot;, and &quot;baz&quot;. Arguments are passed on the command line.
+
+<hr>
+
+<h3> Scenario 2: Form using the GET method </h3>
+<form method="get" action="/cgi-enabled/test.sh">
+User comment: <input name="comment" size="20" type="text">
+<p></p>
+Please vote yes or no:
+<p></p>
+Yes <input name="vote" value="yes" type="radio">
+<p></p>
+Maybe <input name="vote" value="maybe" type="radio">
+<p></p>
+No <input name="vote" value="no" type="radio">
+<p></p>
+<input value="send" type="submit"> 
+(Sends the form contents to /cgi-bin/test.sh using the GET method. Arguments are passed by an environment variable.)
+</form>
+
+<hr>
+
+<h3> Scenario 3: Form using the POST method </h3>
+<form method="post" action="/cgi-enabled/test.sh">
+User comment: <input name="comment" size="20" type="text">
+<p></p>
+Please vote yes or no:
+<p></p>
+Yes <input name="vote" value="yes" type="radio">
+<p></p>
+No <input name="vote" value="no" type="radio">
+<p></p>
+Not <input name="vote" value="not" type="radio">
+<p></p>
+<input value="send" type="submit"> 
+(Sends the form contents to /cgi-bin/test.sh using the POST method. Arguments are passed by standard input.)
+
+<hr>
+
+</form>
+
+</body>
+</html>
+
