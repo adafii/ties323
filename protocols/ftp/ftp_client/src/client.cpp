@@ -30,12 +30,6 @@ enum class login_status {
     login_fail,
 };
 
-enum class client_status {
-    get_input,
-    get_data,
-    quit,
-};
-
 // clang-format off
 const auto input_to_command =  std::vector<std::pair<const std::regex, const command>>{
     {std::regex{R"(^\s*ls\s*$)", std::regex::icase}, command::ls},
@@ -263,9 +257,6 @@ asio::awaitable<asio::error_code> execute(asio::ip::tcp::socket& control_socket,
         }
         case reply::closing_data: {
             break;
-        }
-        case reply::unknown: {
-            [[fallthrough]];
         }
         default: {
             co_return asio::error_code{};

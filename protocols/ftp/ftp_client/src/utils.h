@@ -51,6 +51,6 @@ connect_with_timeout(const auto& host, const auto& port, std::chrono::millisecon
     }
 
     co_return std::pair{asio::error_code{}, std::move(socket)};
-};
+}
 
 }  // namespace ftpc
