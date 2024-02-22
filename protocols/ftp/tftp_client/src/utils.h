@@ -1,10 +1,12 @@
 #pragma once
 #include <algorithm>
 #include <cstdint>
+#include <iostream>
 #include <ranges>
 #include <vector>
 
 namespace tftp {
+
 namespace packet {
 
 enum class opcode : std::uint16_t {
@@ -15,7 +17,7 @@ enum class opcode : std::uint16_t {
     error = 5,
 };
 
-struct rrq {
+struct [[maybe_unused]] rrq {
     opcode op{opcode::rrq};
     std::string filename{};
     std::string mode{"octet"};
@@ -30,7 +32,7 @@ struct wrq {
 struct data {
     opcode op{opcode::data};
     std::uint16_t block{};
-    std::vector<uint8_t> data{};
+    std::vector<std::uint8_t> data{};
 };
 
 struct ack {
@@ -38,10 +40,10 @@ struct ack {
     std::uint16_t block{};
 };
 
-struct error {
+struct [[maybe_unused]] error {
     opcode op{opcode::error};
     std::uint16_t error_code{};
-    std::string error_msg{};
+    std::vector<std::uint8_t> error_msg{};
 };
 
 }  // namespace packet
@@ -68,7 +70,8 @@ inline void copy(std::vector<T>& buffer, const byteish_range auto& range) {
 template <byteish T>
 inline void copy(std::vector<T>& buffer, integralish auto integral) {
     auto array = std::bit_cast<std::array<T, sizeof(integral)>>(integral);
-    std::ranges::copy(array | std::views::reverse, std::back_inserter(buffer));
+    std::ranges::copy(array | std::views::reverse,  // Reverse = little endian -> big endian
+                      std::back_inserter(buffer));
 }
 
 template <byteish T>
@@ -84,8 +87,42 @@ inline std::vector<T> make_buffer(Args&&... args) {
     return buffer;
 }
 
-inline std::vector<uint8_t> to_buffer(const packet::wrq& packet) {
+inline std::vector<uint8_t> to_buffer(const packet::wrq&& packet) {
     return make_buffer<uint8_t>(packet.op, packet.filename, packet.mode);
+}
+
+inline std::vector<uint8_t> to_buffer(const packet::data&& packet) {
+    return make_buffer<uint8_t>(packet.op, packet.block, packet.data);
+}
+
+template <byteish T, std::size_t size>
+inline packet::opcode get_opcode(const std::array<T, size>& buffer) {
+    static_assert(size / sizeof(T) >= 2, "Buffer too small, fix your code!");
+    const auto opcode_array = std::array<T, sizeof(packet::opcode) / sizeof(T)>{buffer[1], buffer[2]};
+    return std::bit_cast<packet::opcode>(opcode_array);
+}
+
+/* FIXME template <byteish T, std::size_t size>
+inline packet::ack to_ack(const std::array<T, size>& buffer) {
+    return std::bit_cast<packet::ack>(std::span(buffer | std::views::take(sizeof(packet::ack))));
+}*/
+
+template <typename... Args>
+inline void debug(const std::format_string<Args...>& fmt, Args&&... args) {
+    std::cerr << std::vformat(fmt.get(), std::make_format_args(args...)) << '\n';
+}
+
+inline void debug_packet(std::string_view message, const byteish_range auto& buffer, std::size_t data_size) {
+    std::cerr << message;
+
+    for (const auto& byte : buffer | std::views::take(data_size)) {
+        if(std::isprint(byte)) {
+            std::cerr << std::format("{:<2c} ", byte);
+            continue;
+        }
+        std::cerr << std::format("{:0>2x} ", byte);
+    }
+    std::cerr << "\n";
 }
 
 }  // namespace tftp
