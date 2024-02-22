@@ -12,7 +12,7 @@ namespace fs = std::filesystem;
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
     auto mode = "-w"sv;
-    auto filename = "source.txt"sv;
+    auto filename = "tftpc"sv;
     auto host = "localhost"sv;
     auto port = "6900"sv;
 

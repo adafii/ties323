@@ -61,11 +61,11 @@ asio::awaitable<asio::error_code> tftp::write_client(asio::ip::udp::socket&& soc
     auto flags = asio::stream_file::read_only;
     auto file = asio::stream_file{executor, source.c_str(), flags};
 
-    const auto request = to_buffer(tftp::packet::wrq{.filename{source.filename()}});
-    const auto send_error = co_await send_packet(socket, server, request);
+    const auto write_request = to_buffer(tftp::packet::wrq{.filename{source.filename()}});
+    const auto write_error = co_await send_packet(socket, server, write_request);
 
-    if (send_error) {
-        co_return send_error;
+    if (write_error) {
+        co_return write_error;
     }
 
     auto response = std::array<std::uint8_t, buffer_size>{};
@@ -77,14 +77,39 @@ asio::awaitable<asio::error_code> tftp::write_client(asio::ip::udp::socket&& soc
         co_return receive_error;
     }
 
-    auto op = get_opcode(response);
-
-    if (op != packet::opcode::ack) {
+    if (get_opcode(response) != packet::opcode::ack) {
         debug("Unexpected response from server");
         co_return asio::error::connection_aborted;
     }
 
     server.port(sender_endpoint.port());
+
+    auto data_packet = packet::data{.data = std::vector<uint8_t>(512)};
+    auto file_error = asio::error_code{};
+    const auto file_reader = [&file, &file_error, &data_packet]() {
+        return file.async_read_some(asio::mutable_buffer(data_packet.data.data(), 512),
+                                    asio::redirect_error(asio::use_awaitable, file_error));
+    };
+
+    auto file_bytes_read = co_await file_reader();
+    while (!file_error && file_bytes_read > 0) {
+        data_packet.data.resize(file_bytes_read);
+        const auto data = to_buffer(data_packet);
+        const auto data_error = co_await send_packet(socket, server, data);
+
+        if (data_error) {
+            co_return data_error;
+        }
+
+        auto ack_response = std::array<std::uint8_t, buffer_size>{};
+        const auto [ack_receive_error, ack_sender_endpoint, ack_bytes_read] =
+            co_await receive_packet(socket, response, receive_timeout);
+
+        // TODO: check ack etc.
+
+        ++data_packet.block;
+        file_bytes_read = co_await file_reader();
+    }
 
     co_return asio::error_code{};
 }
