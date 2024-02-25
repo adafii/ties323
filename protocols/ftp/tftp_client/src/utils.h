@@ -18,6 +18,9 @@ enum class opcode : std::uint16_t {
     error = 5,
 };
 
+using block_t = std::uint16_t;
+using error_t = block_t;
+
 struct [[maybe_unused]] rrq {
     opcode op{opcode::rrq};
     std::string filename{};
@@ -32,18 +35,18 @@ struct wrq {
 
 struct data {
     opcode op{opcode::data};
-    std::uint16_t block{1};
+    block_t block{1};
     std::vector<std::uint8_t> data{};
 };
 
-struct [[maybe_unused]] ack {
+struct ack {
     opcode op{opcode::ack};
-    std::uint16_t block{1};
+    block_t block{1};
 };
 
 struct [[maybe_unused]] error {
     opcode op{opcode::error};
-    std::uint16_t error_code{};
+    error_t error_code{};
     std::vector<std::uint8_t> error_msg{};
 };
 
@@ -95,14 +98,48 @@ inline std::vector<uint8_t> to_buffer(const packet::data& packet) {
     return make_buffer<uint8_t>(packet.op, packet.block, packet.data);
 }
 
-inline packet::opcode get_opcode(const byteish_range auto& buffer) {
-    if (buffer.size() < 2) {
-        return packet::opcode::unknown;
+inline std::pair<packet::opcode, packet::block_t> get_op_and_block(const byteish_range auto& buffer) {
+    if (buffer.size() < (sizeof(packet::opcode) + sizeof(packet::block_t))) {
+        return {packet::opcode::unknown, packet::block_t{}};
     }
 
-    const auto opcode_array = std::array<std::uint8_t, 2>{buffer[1], buffer[0]};  // Big endian -> little endian
-    return std::bit_cast<packet::opcode>(opcode_array);
+    const auto opcode_array = std::array<std::uint8_t, sizeof(packet::opcode)>{buffer[1], buffer[0]};  // Endianess
+    const auto block_array = std::array<std::uint8_t, sizeof(packet::block_t)>{buffer[3], buffer[2]};
+    const auto opcode = std::bit_cast<std::uint16_t>(opcode_array);
+    const auto block = std::bit_cast<packet::block_t>(block_array);
+
+    if (opcode > static_cast<std::uint16_t>(packet::opcode::error)) {
+        return {packet::opcode::unknown, packet::block_t{}};
+    }
+
+    return {std::bit_cast<packet::opcode>(opcode_array), block};
 }
+
+class watchdog {
+public:
+    watchdog(const asio::any_io_executor& executor) : timer_{executor} {}
+
+    void start(std::chrono::milliseconds timeout) {
+        timeout_ = timeout;
+        reset();
+    }
+
+    void reset() {
+        timer_.expires_after(timeout_);
+        timer_.async_wait([this](asio::error_code error) {
+            if (!error) {
+                time_out_signal_.emit(asio::cancellation_type::terminal);
+            }
+        });
+    };
+
+    [[nodiscard]] asio::cancellation_signal& get_signal() { return time_out_signal_; }
+
+private:
+    asio::steady_timer timer_;
+    asio::cancellation_signal time_out_signal_{};
+    asio::chrono::milliseconds timeout_{0};
+};
 
 template <typename... Args>
 inline void debug(const std::format_string<Args...>& fmt, Args&&... args) {
@@ -112,7 +149,9 @@ inline void debug(const std::format_string<Args...>& fmt, Args&&... args) {
 inline void debug_packet(std::string_view message, const byteish_range auto& buffer, std::size_t data_size) {
     std::cerr << message;
 
-    if (get_opcode(buffer) == packet::opcode::data) {
+    const auto [opcode, block] = get_op_and_block(buffer);
+
+    if (opcode == packet::opcode::data) {
         for (const auto& byte : buffer | std::views::take(4)) {
             std::cerr << std::format("{:0>2x} ", byte);
         }
@@ -121,7 +160,7 @@ inline void debug_packet(std::string_view message, const byteish_range auto& buf
     }
 
     for (const auto& byte : buffer | std::views::take(data_size)) {
-        if (std::isprint(byte)) {
+        if (opcode != packet::opcode::ack && std::isprint(byte)) {
             std::cerr << std::format("{:<2c} ", byte);
             continue;
         }

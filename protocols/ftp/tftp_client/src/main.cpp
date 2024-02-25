@@ -39,7 +39,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
             }
 
             if (error) {
-                std::cerr << error.message() << '\n';
+                std::cerr << std::format("Client error: {}\n", error.message());
             }
 
             io_context.stop();
