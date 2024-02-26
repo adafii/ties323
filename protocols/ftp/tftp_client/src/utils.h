@@ -21,7 +21,7 @@ enum class opcode : std::uint16_t {
 using block_t = std::uint16_t;
 using error_t = block_t;
 
-struct [[maybe_unused]] rrq {
+struct rrq {
     opcode op{opcode::rrq};
     std::string filename{};
     std::string mode{"octet"};
@@ -47,12 +47,12 @@ struct ack {
 struct [[maybe_unused]] error {
     opcode op{opcode::error};
     error_t error_code{};
-    std::vector<std::uint8_t> error_msg{};
+    std::string error_msg{};
 };
 
 }  // namespace packet
 
-// Helpers to break packets into bytes
+// Helpers to break packets into bytes before sending
 
 template <typename T>
 concept byteish = sizeof(T) == sizeof(std::uint8_t);
@@ -90,6 +90,10 @@ inline std::vector<T> make_buffer(Args&&... args) {
     return buffer;
 }
 
+inline std::vector<uint8_t> to_buffer(const packet::rrq& packet) {
+    return make_buffer<uint8_t>(packet.op, packet.filename, packet.mode);
+}
+
 inline std::vector<uint8_t> to_buffer(const packet::wrq& packet) {
     return make_buffer<uint8_t>(packet.op, packet.filename, packet.mode);
 }
@@ -98,12 +102,25 @@ inline std::vector<uint8_t> to_buffer(const packet::data& packet) {
     return make_buffer<uint8_t>(packet.op, packet.block, packet.data);
 }
 
+inline std::vector<uint8_t> to_buffer(const packet::ack& packet) {
+    return make_buffer<uint8_t>(packet.op, packet.block);
+}
+
+inline std::vector<uint8_t> to_buffer(const packet::error& packet) {
+    return make_buffer<uint8_t>(packet.op, packet.error_code, packet.error_msg);
+}
+
+/**
+ * Get opcode and block number from data or ack packet buffer
+ * @param buffer Received bytes
+ * @return Opcode and block number
+ */
 inline std::pair<packet::opcode, packet::block_t> get_op_and_block(const byteish_range auto& buffer) {
     if (buffer.size() < (sizeof(packet::opcode) + sizeof(packet::block_t))) {
         return {packet::opcode::unknown, packet::block_t{}};
     }
 
-    const auto opcode_array = std::array<std::uint8_t, sizeof(packet::opcode)>{buffer[1], buffer[0]};  // Endianess
+    const auto opcode_array = std::array<std::uint8_t, sizeof(packet::opcode)>{buffer[1], buffer[0]};  // endianness
     const auto block_array = std::array<std::uint8_t, sizeof(packet::block_t)>{buffer[3], buffer[2]};
     const auto opcode = std::bit_cast<std::uint16_t>(opcode_array);
     const auto block = std::bit_cast<packet::block_t>(block_array);
@@ -115,17 +132,57 @@ inline std::pair<packet::opcode, packet::block_t> get_op_and_block(const byteish
     return {std::bit_cast<packet::opcode>(opcode_array), block};
 }
 
+/**
+ * Get opcode, error number and error message from error packet
+ * @param buffer Received bytes
+ * @return Opcode, error number and error message
+ */
+inline std::tuple<packet::opcode, packet::error_t, std::string> get_error(const byteish_range auto& buffer) {
+    const auto [opcode, error_code] = get_op_and_block(buffer);
+
+    if (opcode != packet::opcode::error || buffer.size() <= 4) {
+        return {opcode, error_code, ""};
+    }
+
+    const auto error_message = std::string{buffer.begin() + 4, buffer.end()};
+
+    return {opcode, error_code, error_message};
+}
+
+/**
+ * Get data from data packet
+ * @param buffer Received bytes
+ * @return Span of data bytes. UB if the lifespan of buffer ends before the return value.
+ */
+inline std::span<const std::uint8_t> get_data_from_packet(const byteish_range auto& buffer) {
+    if (buffer.size() <= 4) {
+        return {};
+    }
+
+    return {buffer.begin() + sizeof(packet::opcode) + sizeof(packet::block_t), buffer.end()};
+}
+
+/**
+ * Watchdog emits cancellation signal if the timer is not reset before the timeout interval
+ */
 class watchdog {
 public:
-    watchdog(const asio::any_io_executor& executor) : timer_{executor} {}
+    explicit watchdog(const asio::any_io_executor& executor) : timer_{executor} {}
 
-    void start(std::chrono::milliseconds timeout) {
-        timeout_ = timeout;
+    /**
+     * Start watchdog timer
+     * @param timeout_interval Watchdog should be reset before the timeout
+     */
+    void start(std::chrono::milliseconds timeout_interval) {
+        timeout_interval_ = timeout_interval;
         reset();
     }
 
+    /**
+     * Reset watchdog timer. This expires immediately if called before start().
+     */
     void reset() {
-        timer_.expires_after(timeout_);
+        timer_.expires_after(timeout_interval_);
         timer_.async_wait([this](asio::error_code error) {
             if (!error) {
                 time_out_signal_.emit(asio::cancellation_type::terminal);
@@ -133,13 +190,19 @@ public:
         });
     };
 
-    [[nodiscard]] asio::cancellation_signal& get_signal() { return time_out_signal_; }
+    /**
+     * Get slot that receives cancel signals from watchdog timeouts
+     * @return Cancel signal slot
+     */
+    [[nodiscard]] asio::cancellation_slot get_signal_slot() { return time_out_signal_.slot(); }
 
 private:
     asio::steady_timer timer_;
     asio::cancellation_signal time_out_signal_{};
-    asio::chrono::milliseconds timeout_{0};
+    asio::chrono::milliseconds timeout_interval_{0};
 };
+
+// Debug helpers
 
 template <typename... Args>
 inline void debug(const std::format_string<Args...>& fmt, Args&&... args) {

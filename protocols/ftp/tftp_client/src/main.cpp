@@ -10,18 +10,41 @@ using std::literals::string_view_literals::operator""sv;
 using std::literals::string_literals::operator""s;
 namespace fs = std::filesystem;
 
-int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
-    auto mode = "-w"sv;
-    auto filename = "tftpc"sv;
-    auto host = "localhost"sv;
-    auto port = "6900"sv;
+int main(int argc, char* argv[]) {
+    auto args = std::vector<std::string_view>{argv + 1, argv + argc};
+
+    auto help = []() {
+        std::cout << "Usage: tftpc ( -r | -w ) file host port\n"
+                  << "    -r Read file from host (RRQ)\n"
+                  << "    -w Write file to host (WRQ)\n";
+    };
+
+    if (args.size() != 4) {
+        help();
+        return EXIT_FAILURE;
+    }
+
+    auto mode = args[0];
+    auto filename = args[1];
+    auto host = args[2];
+    auto port = args[3];
 
     if (!(mode == "-r" || mode == "-w")) {
-        std::cerr << "help\n";
+        help();
         return EXIT_FAILURE;
     }
 
     auto path = fs::path(filename).lexically_normal();
+
+    if (mode == "-r" && std::filesystem::status(path).type() != std::filesystem::file_type::not_found) {
+        std::cerr << std::format("File {} exists already!\n", path.string());
+        return EXIT_FAILURE;
+    }
+
+    if (mode == "-w" && std::filesystem::status(path).type() == std::filesystem::file_type::not_found) {
+        std::cerr << std::format("File {} not found!\n", path.string());
+        return EXIT_FAILURE;
+    }
 
     try {
         auto io_context = asio::io_context{};
@@ -33,13 +56,16 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
         auto resolver = asio::ip::udp::resolver(io_context);
         auto server = *resolver.resolve(asio::ip::udp::v4(), host, port).begin();
 
-        auto handler = [&io_context](auto exception, const auto& error) {
+        auto client_error = std::atomic_flag{false};
+
+        auto handler = [&io_context, &client_error](auto exception, const auto& error) {
             if (exception) {
                 std::rethrow_exception(exception);
             }
 
             if (error) {
-                std::cerr << std::format("Client error: {}\n", error.message());
+                std::cerr << std::format("Client returned error: {}\n", error.message());
+                client_error.test_and_set();
             }
 
             io_context.stop();
@@ -52,8 +78,12 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
         }
 
         io_context.run();
+
+        if (client_error.test()) {
+            return EXIT_FAILURE;
+        }
     } catch (std::exception& exception) {
-        std::cerr << exception.what() << '\n';
+        std::cerr << std::format("Exception: {}\n", exception.what());
     }
 
     return EXIT_SUCCESS;
