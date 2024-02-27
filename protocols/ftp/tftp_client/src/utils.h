@@ -90,24 +90,24 @@ inline std::vector<T> make_buffer(Args&&... args) {
     return buffer;
 }
 
-inline std::vector<uint8_t> to_buffer(const packet::rrq& packet) {
-    return make_buffer<uint8_t>(packet.op, packet.filename, packet.mode);
+inline std::vector<std::uint8_t> to_buffer(const packet::rrq& packet) {
+    return make_buffer<std::uint8_t>(packet.op, packet.filename, packet.mode);
 }
 
-inline std::vector<uint8_t> to_buffer(const packet::wrq& packet) {
-    return make_buffer<uint8_t>(packet.op, packet.filename, packet.mode);
+inline std::vector<std::uint8_t> to_buffer(const packet::wrq& packet) {
+    return make_buffer<std::uint8_t>(packet.op, packet.filename, packet.mode);
 }
 
-inline std::vector<uint8_t> to_buffer(const packet::data& packet) {
-    return make_buffer<uint8_t>(packet.op, packet.block, packet.data);
+inline std::vector<std::uint8_t> to_buffer(const packet::data& packet) {
+    return make_buffer<std::uint8_t>(packet.op, packet.block, packet.data);
 }
 
-inline std::vector<uint8_t> to_buffer(const packet::ack& packet) {
-    return make_buffer<uint8_t>(packet.op, packet.block);
+inline std::vector<std::uint8_t> to_buffer(const packet::ack& packet) {
+    return make_buffer<std::uint8_t>(packet.op, packet.block);
 }
 
-inline std::vector<uint8_t> to_buffer(const packet::error& packet) {
-    return make_buffer<uint8_t>(packet.op, packet.error_code, packet.error_msg);
+inline std::vector<std::uint8_t> to_buffer(const packet::error& packet) {
+    return make_buffer<std::uint8_t>(packet.op, packet.error_code, packet.error_msg);
 }
 
 /**

@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
 
         auto client_error = std::atomic_flag{false};
 
-        auto handler = [&io_context, &client_error](auto exception, const auto& error) {
+        auto handler = [&io_context, &client_error](auto exception, const auto error) {
             if (exception) {
                 std::rethrow_exception(exception);
             }
