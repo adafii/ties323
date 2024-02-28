@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
     try {
         auto io_context = asio::io_context{};
 
-        auto signals = asio::signal_set{io_context, SIGINT, SIGTERM};
+        auto signals = asio::signal_set{io_context, SIGINT, SIGHUP, SIGTERM};
         signals.async_wait([&io_context](auto, auto) { io_context.stop(); });
 
         auto socket = asio::ip::udp::socket{io_context, asio::ip::udp::v4()};

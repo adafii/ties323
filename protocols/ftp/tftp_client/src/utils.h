@@ -111,25 +111,37 @@ inline std::vector<std::uint8_t> to_buffer(const packet::error& packet) {
 }
 
 /**
- * Get opcode and block number from data or ack packet buffer
+ * Get opcode from data or ack packet buffer
  * @param buffer Received bytes
- * @return Opcode and block number
+ * @return Opcode
  */
-inline std::pair<packet::opcode, packet::block_t> get_op_and_block(const byteish_range auto& buffer) {
-    if (buffer.size() < (sizeof(packet::opcode) + sizeof(packet::block_t))) {
-        return {packet::opcode::unknown, packet::block_t{}};
+inline packet::opcode get_opcode(const byteish_range auto& buffer) {
+    if (buffer.size() < sizeof(packet::opcode)) {
+        return packet::opcode::unknown;
     }
 
-    const auto opcode_array = std::array<std::uint8_t, sizeof(packet::opcode)>{buffer[1], buffer[0]};  // endianness
-    const auto block_array = std::array<std::uint8_t, sizeof(packet::block_t)>{buffer[3], buffer[2]};
+    const auto opcode_array = std::array<std::uint8_t, sizeof(packet::opcode)>{buffer[1], buffer[0]};
     const auto opcode = std::bit_cast<std::uint16_t>(opcode_array);
-    const auto block = std::bit_cast<packet::block_t>(block_array);
 
     if (opcode > static_cast<std::uint16_t>(packet::opcode::error)) {
-        return {packet::opcode::unknown, packet::block_t{}};
+        return packet::opcode::unknown;
     }
 
-    return {std::bit_cast<packet::opcode>(opcode_array), block};
+    return static_cast<packet::opcode>(opcode);
+}
+
+/**
+ * Get block number from data or ack packet buffer
+ * @param buffer Received bytes
+ * @return Block number
+ */
+inline packet::block_t get_block_number(const byteish_range auto& buffer) {
+    if (buffer.size() < sizeof(packet::opcode) + sizeof(packet::block_t)) {
+        return 0;
+    }
+
+    const auto block_array = std::array<std::uint8_t, sizeof(packet::block_t)>{buffer[3], buffer[2]};
+    return std::bit_cast<packet::block_t>(block_array);
 }
 
 /**
@@ -138,13 +150,18 @@ inline std::pair<packet::opcode, packet::block_t> get_op_and_block(const byteish
  * @return Opcode, error number and error message
  */
 inline std::tuple<packet::opcode, packet::error_t, std::string> get_error(const byteish_range auto& buffer) {
-    const auto [opcode, error_code] = get_op_and_block(buffer);
-
-    if (opcode != packet::opcode::error || buffer.size() <= 4) {
-        return {opcode, error_code, ""};
+    if (buffer.size() <= sizeof(packet::opcode) + sizeof(packet::error_t) + 1) {
+        return {packet::opcode::unknown, 0, {}};
     }
 
-    const auto error_message = std::string{buffer.begin() + 4, buffer.end()};
+    const auto opcode = tftp::get_opcode(buffer);
+    const auto error_code = tftp::get_block_number(buffer);
+
+    if (opcode != packet::opcode::error) {
+        return {opcode, 0, {}};
+    }
+
+    const auto error_message = std::string{buffer.begin() + sizeof(packet::opcode) + sizeof(packet::error_t), buffer.end() - 1};
 
     return {opcode, error_code, error_message};
 }
@@ -154,8 +171,8 @@ inline std::tuple<packet::opcode, packet::error_t, std::string> get_error(const 
  * @param buffer Received bytes
  * @return Span of data bytes. UB if the lifespan of buffer ends before the return value.
  */
-inline std::span<const std::uint8_t> get_data_from_packet(const byteish_range auto& buffer) {
-    if (buffer.size() <= 4) {
+inline std::span<const std::uint8_t> get_data(const byteish_range auto& buffer) {
+    if (buffer.size() <= sizeof(packet::opcode) + sizeof(packet::block_t)) {
         return {};
     }
 
@@ -167,7 +184,20 @@ inline std::span<const std::uint8_t> get_data_from_packet(const byteish_range au
  */
 class watchdog {
 public:
+    /**
+     * Construct watchdog without starting it
+     * @param executor Coro executor
+     */
     explicit watchdog(const asio::any_io_executor& executor) : timer_{executor} {}
+
+    /**
+     * Construct watchdog and start the timer
+     * @param executor Coro executor
+     * @param timeout_interval Watchdog should be reset before the timeout
+     */
+    watchdog(const asio::any_io_executor& executor, std::chrono::milliseconds timeout_interval) : watchdog{executor} {
+        this->start(timeout_interval);
+    }
 
     /**
      * Start watchdog timer
@@ -185,9 +215,18 @@ public:
         timer_.expires_after(timeout_interval_);
         timer_.async_wait([this](asio::error_code error) {
             if (!error) {
+                has_expired_.test_and_set();
                 time_out_signal_.emit(asio::cancellation_type::terminal);
             }
         });
+    };
+
+    /**
+     * Checks if the timer has expired
+     * @return True, if the timer has expired
+     */
+    [[nodiscard]] bool has_expired() const {
+        return has_expired_.test();
     };
 
     /**
@@ -200,6 +239,7 @@ private:
     asio::steady_timer timer_;
     asio::cancellation_signal time_out_signal_{};
     asio::chrono::milliseconds timeout_interval_{0};
+    std::atomic_flag has_expired_{false};
 };
 
 // Debug helpers
@@ -209,20 +249,27 @@ inline void debug(const std::format_string<Args...>& fmt, Args&&... args) {
     std::cerr << std::vformat(fmt.get(), std::make_format_args(args...)) << '\n';
 }
 
-inline void debug_packet(std::string_view message, const byteish_range auto& buffer, std::size_t data_size) {
+inline void debug_packet(std::string_view message, const byteish_range auto& buffer) {
     std::cerr << message;
 
-    const auto [opcode, block] = get_op_and_block(buffer);
+    const auto opcode = get_opcode(buffer);
 
     if (opcode == packet::opcode::data) {
         for (const auto& byte : buffer | std::views::take(4)) {
             std::cerr << std::format("{:0>2x} ", byte);
         }
-        std::cerr << std::format("[ {} bytes of data ]\n", data_size - 4);
+
+        std::cerr << std::format("[ {} bytes of data ]", buffer.size() - 4);
+
+        if ( buffer.size() < 512 ) {
+            std::cerr << " (last)";
+        }
+
+        std::cerr << '\n';
         return;
     }
 
-    for (const auto& byte : buffer | std::views::take(data_size)) {
+    for (const auto& byte : buffer) {
         if (opcode != packet::opcode::ack && std::isprint(byte)) {
             std::cerr << std::format("{:<2c} ", byte);
             continue;
