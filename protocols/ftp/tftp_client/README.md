@@ -1,4 +1,6 @@
-Example of usage. See [tftp server readme](../tftp_server/README.md) for server output.
+## Example of usage 
+
+See [tftp server readme](../tftp_server/README.md) for server output.
 
 ```
 $ ./tftpc

@@ -13,8 +13,8 @@ using namespace asio::experimental::awaitable_operators;
 
 constexpr auto MAX_RECEIVE_SIZE = std::size_t{1024};
 constexpr auto DATA_CHUNK_SIZE = std::size_t{512};
-constexpr auto MAX_RECEIVE_WAIT_TIME = 1000ms;
-constexpr auto MAX_WAIT_TIME = 5000ms;
+constexpr auto MAX_RECEIVE_WAIT_TIME = 2000ms;
+constexpr auto MAX_WAIT_TIME = 10000ms;
 
 asio::awaitable<asio::error_code> send_packet(asio::ip::udp::socket& socket,
                                               const asio::ip::udp::endpoint& receiver,
