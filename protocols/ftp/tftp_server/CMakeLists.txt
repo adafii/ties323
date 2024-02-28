@@ -10,8 +10,8 @@ set(src ${source_dir}/main.cpp
 
 add_library(asio INTERFACE /usr/include/asio.hpp)
 target_include_directories(asio SYSTEM INTERFACE /usr/include/asio)
-target_compile_definitions(asio INTERFACE ASIO_STANDALONE ASIO_NO_DEPRECATED ASIO_HAS_FILE ASIO_HAS_IO_URING)
-target_link_libraries(asio INTERFACE Threads::Threads uring)
+target_compile_definitions(asio INTERFACE ASIO_STANDALONE ASIO_NO_DEPRECATED)
+target_link_libraries(asio INTERFACE Threads::Threads)
 
 add_executable(${main_target} ${src})
 target_include_directories(${main_target} PRIVATE ${source_dir})

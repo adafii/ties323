@@ -1,12 +1,15 @@
 #pragma once
-#include <cstdint>
-#include <vector>
-#include <string>
-#include <ranges>
 #include <algorithm>
+#include <cstdint>
 #include <iostream>
+#include <ranges>
+#include <string>
+#include <vector>
 
 namespace tftp {
+
+using std::literals::string_literals::operator""s;
+using std::literals::string_view_literals::operator""sv;
 
 namespace packet {
 
@@ -51,7 +54,7 @@ struct [[maybe_unused]] error {
     std::string error_msg{};
 };
 
-}
+}  // namespace packet
 
 // Helpers to break packets into bytes before sending
 
@@ -118,6 +121,98 @@ inline packet::opcode get_opcode(const byteish_range auto& buffer) {
     return static_cast<packet::opcode>(opcode);
 }
 
+inline packet::block_t get_block_number(const byteish_range auto& buffer) {
+    if (buffer.size() < sizeof(packet::opcode) + sizeof(packet::block_t)) {
+        return 0;
+    }
+
+    const auto block_array = std::array<std::uint8_t, sizeof(packet::block_t)>{buffer[3], buffer[2]};
+    return std::bit_cast<packet::block_t>(block_array);
+}
+
+inline std::string get_filename(const byteish_range auto& buffer) {
+    if (buffer.size() < sizeof(packet::opcode) + 1) {
+        return ""s;
+    }
+
+    auto filename = std::string{};
+    std::ranges::copy(buffer | std::views::drop(sizeof(packet::opcode)) |
+                          std::views::take_while([](auto chr) { return chr != '\0'; }),
+                      std::back_inserter(filename));
+    return filename;
+}
+
+inline std::span<const std::uint8_t> get_data(const byteish_range auto& buffer) {
+    if (buffer.size() <= sizeof(packet::opcode) + sizeof(packet::block_t)) {
+        return {};
+    }
+
+    return {buffer.begin() + sizeof(packet::opcode) + sizeof(packet::block_t), buffer.end()};
+}
+
+/**
+ * Watchdog emits cancellation signal if the timer is not reset before the timeout interval
+ */
+class watchdog {
+public:
+    /**
+     * Construct watchdog without starting it
+     * @param executor Coro executor
+     */
+    explicit watchdog(const asio::any_io_executor& executor) : timer_{executor} {}
+
+    /**
+     * Construct watchdog and start the timer
+     * @param executor Coro executor
+     * @param timeout_interval Watchdog should be reset before the timeout
+     */
+    watchdog(const asio::any_io_executor& executor, std::chrono::milliseconds timeout_interval) : watchdog{executor} {
+        this->start(timeout_interval);
+    }
+
+    /**
+     * Start watchdog timer
+     * @param timeout_interval Watchdog should be reset before the timeout
+     */
+    void start(std::chrono::milliseconds timeout_interval) {
+        timeout_interval_ = timeout_interval;
+        reset();
+    }
+
+    /**
+     * Reset watchdog timer. This expires immediately if called before start().
+     */
+    void reset() {
+        timer_.expires_after(timeout_interval_);
+        timer_.async_wait([this](asio::error_code error) {
+            if (!error) {
+                has_expired_.test_and_set();
+                time_out_signal_.emit(asio::cancellation_type::terminal);
+            }
+        });
+    };
+
+    /**
+     * Checks if the timer has expired
+     * @return True, if the timer has expired
+     */
+    [[nodiscard]] bool has_expired() const {
+        return has_expired_.test();
+    };
+
+    /**
+     * Get slot that receives cancel signals from watchdog timeouts
+     * @return Cancel signal slot
+     */
+    [[nodiscard]] asio::cancellation_slot get_signal_slot() { return time_out_signal_.slot(); }
+
+private:
+    asio::steady_timer timer_;
+    asio::cancellation_signal time_out_signal_{};
+    asio::chrono::milliseconds timeout_interval_{0};
+    std::atomic_flag has_expired_{false};
+};
+
 // Debug helpers
 
 template <typename... Args>
@@ -134,11 +229,18 @@ inline void debug_packet(std::string_view message, const byteish_range auto& buf
         for (const auto& byte : buffer | std::views::take(4)) {
             std::cerr << std::format("{:0>2x} ", byte);
         }
-        std::cerr << std::format("[ {} bytes of data ]\n", buffer.size() - 4);
+
+        std::cerr << std::format("[ {} bytes of data ]", buffer.size() - 4);
+
+        if ( buffer.size() < 512 ) {
+            std::cerr << " (last)";
+        }
+
+        std::cerr << '\n';
         return;
     }
 
-    for (const auto& byte : buffer | std::views::take(buffer.size())) {
+    for (const auto& byte : buffer) {
         if (opcode != packet::opcode::ack && std::isprint(byte)) {
             std::cerr << std::format("{:<2c} ", byte);
             continue;
