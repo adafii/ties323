@@ -7,6 +7,8 @@ IndentWidth: 4
 UseTab: Never
 ColumnLimit: 120
 
+KeepEmptyLinesAtTheStartOfBlocks: true
+
 SortIncludes: "CaseInsensitive"
 IncludeBlocks: Merge
 IncludeCategories:
