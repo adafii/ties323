@@ -23,15 +23,14 @@ SMTP, POP3, and IMAP servers are run within a single process, which allows them 
 ### File transfer protocols
 
 - [x] [FTP client](/protocols/ftp/ftp_client)
-- [x] [TFTP client](/protocols/ftp/tftp_client) (Example missing)
-- [ ] TFTP server
-- [ ] Both RRQ and WRQ for TFTP client and server (1/2)
-    - RRQ and WRQ for client
-- [ ] Error handling for TFTP
-    - Client checks block number
-    - Client resends data if ack has wrong opcode or block number
-    - Client resends data if ack timeouts
-    - Client resends ack if data has wrong opcode or block number, or timeouts
+- [x] [TFTP client](/protocols/ftp/tftp_client)
+- [x] [TFTP server](/protocols/ftp/tftp_server)
+- [x] Both RRQ and WRQ implemented
+- [ ] Error handling for TFTP (4/5)
+    - Client and server checks block number
+    - Client and server resends data if ack has wrong opcode or block number
+    - Client and server resends data if ack timeouts
+    - Client and server resends ack if data has wrong opcode, block number, or timeouts
 
 ## Kathará
 

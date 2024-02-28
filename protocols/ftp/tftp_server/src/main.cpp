@@ -91,8 +91,15 @@ asio::awaitable<asio::error_code> spawn_connections(asio::ip::udp::socket&& serv
     }
 }
 
-int main() {
-    auto server_port = "6900"sv;
+int main(int argc, char* argv[]) {
+    auto args = std::vector<std::string_view>{argv + 1, argv + argc};
+
+    if (args.size() != 1) {
+        std::cout << "Usage: tftps port\n";
+        return EXIT_FAILURE;
+    }
+
+    auto server_port = args[0];
 
     try {
         auto io_context = asio::io_context{};
@@ -110,6 +117,8 @@ int main() {
             std::cerr << std::format("Could not resolve port {}", server_port);
             return EXIT_FAILURE;
         }
+
+        std::cerr << std::format("Listening port {}\n", server_port);
 
         auto port = (*ports.begin()).endpoint().port();
         auto endpoint = asio::ip::udp::endpoint{asio::ip::udp::v4(), port};
