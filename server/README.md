@@ -66,6 +66,11 @@ table inet nftables_svc {
 		elements = { "lo" }
 	}
 
+	set blocked_interfaces {
+		type ifname
+		elements = { "eth1" }
+	}
+
 	set allowed_tcp_dports {
 		type inet_service
 		elements = { 2288 }
@@ -75,21 +80,21 @@ table inet nftables_svc {
 		ct state established,related accept
 		meta l4proto @allowed_protocols accept
 		iifname @allowed_interfaces accept
+		iifname @blocked_interfaces drop
 		tcp dport @allowed_tcp_dports accept
 	}
 
 	chain INPUT {
 		type filter hook input priority 20; policy accept;
 		jump allow
-		reject
+		drop
 	}
 
 	chain FORWARD {
 		type filter hook forward priority 20; policy accept;
 		jump allow
-		reject with icmpx host-unreachable
+		drop
 	}
 }
 ```
-
 
