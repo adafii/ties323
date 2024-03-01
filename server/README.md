@@ -33,4 +33,13 @@
     - Configured public key SSH login for normal user, and disabled root and password login
     - Moved SSH to port 2288
 
+## Network
+
+- It seems that both servers got correct network configuration from dhcp.
+
+- Conceptually, the network configuration looks like this
+![network](/images/network.png)
+
+- VPS provider offered an option to connect servers to a private network, 10.0.0.0/24. This was easy to setup and might come useful later.
+- I noticed that the servers are isolated in the private network and can only communicate through the router 10.0.0.1
 
