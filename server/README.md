@@ -43,15 +43,15 @@
 - VPS provider offered an option to connect servers to a private network, 10.0.0.0/24. This was quick to set up and might come useful later.
 - I noticed that the servers are isolated in the private network and can only communicate through the router 10.0.0.1
 
-### Setting firewal for ns-ofu (40 minutes)
+### Setting firewall for ns-ofu (40 minutes)
 
-- By default there is no firewall service running on AlmaLinux.
 - I decided to use nftables to configure firewall. 
 - Getting the firewall rules right took some studying, because I haven't used nftables much. Luckily, there was a simple example configuration and [RHEL manuals](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/configuring_firewalls_and_packet_filters/getting-started-with-nftables_firewall-packet-filters).
 - I edited the ruleset to allow: 
     - Incoming TCP connections to SSH port 2288 
-    - Established TCP connections
+    - Returning traffic
     - ICMP
+- Outgoing traffic seems to be allowed by default
 - After enabling and starting nftables service:
 ```
 $ sudo nft list ruleset
@@ -98,3 +98,21 @@ table inet nftables_svc {
 }
 ```
 
+### Setting firewall for mail-ofu (50 minutes)
+
+- OpenBSD uses PF as firewall. It's enabled by default, but the ruleset should be still customized to be strict as possible.
+- [PF user's guide](https://www.openbsd.org/faq/pf/index.html) was a good resource for setting up the firewall 
+- I configured PF to allow 
+    - Outgoing TCP, UDP and ICMP connections (I might restrict this more later if needed)
+    - Incoming TCP connections to SSH port 2288 
+- PF tracks the state by default, so returning traffic, both ways, always passes unless explicitly denied
+- After setting the rules:
+```
+mail$ doas pfctl -sr
+match in all scrub (no-df)
+block drop all
+pass out on egress proto tcp all flags S/SA modulate state
+pass out on egress proto udp all
+pass out on egress proto icmp all
+pass in on egress proto tcp from any to any port = 2288 flags S/SA
+```
