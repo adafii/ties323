@@ -1,4 +1,4 @@
-# Log of setting up web, email, and DNS servers
+# Notes of setting up web, email, and DNS servers
 
 The goal of this project is to set up web, email, and DNS services on real servers. To make the project more interesting, I plan to open at least the web and DNS services to the public internet. Although I am not an IT security expert, I will do my best to protect the servers from unauthorized access. There isn't any valuable information on the servers, but in the worst case, the servers and the services on them could be used to launch further attacks and spamming. 
 
@@ -58,45 +58,45 @@ The goal of this project is to set up web, email, and DNS services on real serve
 ```
 $ sudo nft list ruleset
 table inet nftables_svc {
-	set allowed_protocols {
-		type inet_proto
-		elements = { icmp, ipv6-icmp }
-	}
+    set allowed_protocols {
+        type inet_proto
+        elements = { icmp, ipv6-icmp }
+    }
 
-	set allowed_interfaces {
-		type ifname
-		elements = { "lo" }
-	}
+    set allowed_interfaces {
+        type ifname
+        elements = { "lo" }
+    }
 
-	set blocked_interfaces {
-		type ifname
-		elements = { "eth1" }
-	}
+    set blocked_interfaces {
+        type ifname
+        elements = { "eth1" }
+    }
 
-	set allowed_tcp_dports {
-		type inet_service
-		elements = { 2288 }
-	}
+    set allowed_tcp_dports {
+        type inet_service
+        elements = { 2288 }
+    }
 
-	chain allow {
-		ct state established,related accept
-		meta l4proto @allowed_protocols accept
-		iifname @allowed_interfaces accept
-		iifname @blocked_interfaces drop
-		tcp dport @allowed_tcp_dports accept
-	}
+    chain allow {
+        ct state established,related accept
+        meta l4proto @allowed_protocols accept
+        iifname @allowed_interfaces accept
+        iifname @blocked_interfaces drop
+        tcp dport @allowed_tcp_dports accept
+    }
 
-	chain INPUT {
-		type filter hook input priority 20; policy accept;
-		jump allow
-		drop
-	}
+    chain INPUT {
+        type filter hook input priority 20; policy accept;
+        jump allow
+        drop
+    }
 
-	chain FORWARD {
-		type filter hook forward priority 20; policy accept;
-		jump allow
-		drop
-	}
+    chain FORWARD {
+        type filter hook forward priority 20; policy accept;
+        jump allow
+        drop
+    }
 }
 ```
 
@@ -119,12 +119,14 @@ pass out on egress proto icmp all
 pass in on egress proto tcp from any to any port = 2288 flags S/SA
 ```
 
-## Configuring DNS 
+## Configuring DNS
+
+### Configuring ns-ofu as a primary DNS (3 hours)
 
 - Again, I used [RHEL manuals](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/managing_networking_infrastructure_services/assembly_setting-up-and-configuring-a-bind-dns-server_networking-infrastructure-services) as my primary source.
 - To find more detailed information, I used [BIND manual](https://bind9.readthedocs.io/en/latest/index.html).
 - I installed bind to ns-ofu (dnf install bind).
-- Set SELinux to enforcing mode to harden bind against known vulnerabilities.
+- SELinux was set from permissive mode to enforcing mode to harden bind against known vulnerabilities.
 - Edited /etc/hosts to 
 ```
 65.108.60.126           ns.ofu.fi ns-ofu
@@ -148,20 +150,16 @@ zone "ofu.fi" {
 - File /var/named/ofu.fi.zone was added:
 ```
 $TTL 8h
-@ 		IN 		SOA		ns.ofu.fi.	admin.oru.fi. (
-								    2024030401 ; serial number
-								    1d         ; refresh period
-								    3h         ; retry period
-							        3d         ; expire time
-								    3h )       ; minimum TTL
-		IN		NS		ns.ofu.fi.
-ns		IN		A		65.108.60.126
-ns		IN		AAAA	2a01:4f9:c012:7e00::1
+@	        IN          SOA         ns.ofu.fi. admin.oru.fi. (
+                                    2024030401 ; serial number
+                                    1d         ; refresh period
+                                    3h         ; retry period
+                                    3d         ; expire time
+                                    3h )       ; minimum TTL
 
-mail	IN		A		95.217.16.28
-mail	IN		AAAA	2a01:4f9:c012:c33e::1
-
-www		IN		CNAME	mail.ofu.fi.
+            IN          NS          ns.ofu.fi.
+ns          IN          A           65.108.60.126
+ns          IN          AAAA        2a01:4f9:c012:7e00::1
 ```
 - Mail address is not a typo, it's my other domain.
 - Changed file permissions according to RHEL manual and validated zone-file:
@@ -174,4 +172,98 @@ OK
 ```
 - I opened port 53 for udp and tcp traffic from nftables config and reloaded nftables
 - Finally, 'systemctl enable --now named' to enable and start bind
-- Because my nameserver is within my domain, I need to set up glue record to my domain registrar.
+- I can now query records from my own desktop
+```
+% dig +nocomment @65.108.60.126 ofu.fi any
+
+; <<>> DiG 9.18.24 <<>> +nocomment @65.108.60.126 ofu.fi any
+; (1 server found)
+;; global options: +cmd
+;ofu.fi.				IN	ANY
+ofu.fi.			28800	IN	SOA	ns.ofu.fi. admin.oru.fi. 2024030401 86400 10800 259200 10800
+ofu.fi.			28800	IN	NS	ns.ofu.fi.
+ns.ofu.fi.		28800	IN	A	65.108.60.126
+ns.ofu.fi.		28800	IN	AAAA	2a01:4f9:c012:7e00::1
+;; Query time: 6 msec
+;; SERVER: 65.108.60.126#53(65.108.60.126) (TCP)
+;; WHEN: Tue Mar 05 21:21:48 EET 2024
+;; MSG SIZE  rcvd: 172
+```
+- At this point I went to my domain registrar site to set glue records and nameservers. This made me realize that I probably need a secondary nameserver to make this actually work.
+- I am not giving up yet. DNS might work if I use mail-ofu as my secondary DNS.
+
+### Configuring mail-ofu as a secondary DNS 
+
+- I used RHEL manual and [NSD docs](https://nsd.docs.nlnetlabs.nl/en/latest/index.html) as my source for this section.
+- OpenBSD manual entry for [nsd.conf](https://man.openbsd.org/nsd.conf.5) was also helpful for OpenBSD specific configs.
+- Zone file on ns-ofu was changed to:
+```
+cat /var/named/ofu.fi.zone
+$TTL 8h
+@           IN          SOA         ns.ofu.fi. admin.oru.fi. (
+                                    2024030401 ; serial number
+                                    1d         ; refresh period
+                                    3h         ; retry period
+                                    3d         ; expire time
+                                    3h )       ; minimum TTL
+
+@           IN          NS          ns.ofu.fi.
+@           IN          NS          ns2.ofu.fi.
+
+ns          IN          A           65.108.60.126
+ns          IN          AAAA        2a01:4f9:c012:7e00::1
+
+ns2         IN          A           95.217.16.28
+```
+- Forward zone definition on ns-ofu named.conf was changed to:
+```
+key "ofu-transfer-key" {
+	algorithm hmac-sha256;
+	secret <redacted>;
+};
+
+zone "ofu.fi" {
+	type master;
+	file "ofu.fi.zone";
+	allow-query { any; };
+	allow-transfer { key ofu-transfer-key; };
+};
+```
+- Changes above were validated and reloaded.
+- I created /var/nsd/etc/nsd.conf to mail-ofu:
+```
+mail# cat /var/nsd/etc/nsd.conf
+server:
+    server-count: 1
+    database: ""
+    zonelistfile: "/var/nsd/db/zone.list"
+    username: _nsd
+    logfile: "/var/log/nsd.log"
+    pidfile: ""
+    xfrdfile: "/var/nsd/run/xfrd.state"
+
+remote-control:
+    control-enable: yes
+    control-interface: /var/run/nsd.sock
+
+key:
+    name: ofu-transfer-key
+    algorithm: hmac-sha256
+    secret: <redacted>
+
+zone:
+    name: "ofu.fi"
+    zonefile: "slave/ofu.fi.signed"
+    allow-notify: 65.108.60.126 NOKEY
+    request-xfr: 65.108.60.126 ofu-transfer-key
+```
+- Pf rules was changed to accept tcp and udp connections to port 53.
+- Enabled and started nsd:
+```
+mail# rcctl enable nsd
+mail# rcctl start nsd
+```
+- Nsd started
+```
+
+```
