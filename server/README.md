@@ -40,10 +40,10 @@ The goal of this project is to set up web, email, and DNS services on real serve
 ### Network configuration (30 minutes)
 
 - It seems that both servers got correct network configuration from dhcp.
-- Conceptually, the network configuration looks like this
+- Conceptually, the network configuration looks like this:
 ![network](images/network.png)
 - VPS provider offered an option to connect servers to a private network, 10.0.0.0/24. This was quick to set up and might come useful later.
-- I noticed that the servers are isolated in the private network and can only communicate through the router 10.0.0.1
+- I noticed that the servers are isolated in the private network and can only communicate through the router 10.0.0.1.
 
 ### Setting firewall for ns-ofu (40 minutes)
 
@@ -53,7 +53,7 @@ The goal of this project is to set up web, email, and DNS services on real serve
     - Incoming TCP connections to SSH port 2288
     - Returning traffic
     - ICMP
-- Outgoing traffic seems to be allowed by default
+- Outgoing traffic seems to be allowed by default.
 - After enabling and starting nftables service:
 ```
 $ sudo nft list ruleset
@@ -103,11 +103,11 @@ table inet nftables_svc {
 ### Setting firewall for mail-ofu (50 minutes)
 
 - OpenBSD uses PF as firewall. It's enabled by default, but the ruleset should be still customized to be strict as possible.
-- [PF user's guide](https://www.openbsd.org/faq/pf/index.html) was a good resource for setting up the firewall 
-- I configured PF to allow 
+- [PF user's guide](https://www.openbsd.org/faq/pf/index.html) was a good resource for setting up the firewall.
+- I configured PF to allow:
     - Outgoing TCP, UDP and ICMP connections (I might restrict this more later if needed)
     - Incoming TCP connections to SSH port 2288 
-- PF tracks the state by default, so returning traffic, both ways, always passes unless explicitly denied
+- PF tracks the state by default, so returning traffic, both ways, always passes unless explicitly denied.
 - After setting the rules:
 ```
 mail$ doas pfctl -sr
@@ -127,7 +127,7 @@ pass in on egress proto tcp from any to any port = 2288 flags S/SA
 - To find more detailed information, I used [BIND manual](https://bind9.readthedocs.io/en/latest/index.html).
 - I installed bind to ns-ofu (dnf install bind).
 - SELinux was set from permissive mode to enforcing mode to harden bind against known vulnerabilities.
-- Edited /etc/hosts to 
+- Edited /etc/hosts to:
 ```
 65.108.60.126           ns.ofu.fi ns-ofu
 127.0.0.1               localhost
@@ -170,9 +170,9 @@ ns          IN          AAAA        2a01:4f9:c012:7e00::1
 zone ofu.fi/IN: loaded serial 2024030401
 OK
 ```
-- I opened port 53 for udp and tcp traffic from nftables config and reloaded nftables
-- Finally, 'systemctl enable --now named' to enable and start bind
-- I can now query records from my own desktop
+- I opened port 53 for udp and tcp traffic from nftables config and reloaded nftables.
+- Finally, 'systemctl enable --now named' to enable and start bind.
+- I can now query records from my own workstation:
 ```
 % dig +nocomment @65.108.60.126 ofu.fi any
 
@@ -189,10 +189,11 @@ ns.ofu.fi.		28800	IN	AAAA	2a01:4f9:c012:7e00::1
 ;; WHEN: Tue Mar 05 21:21:48 EET 2024
 ;; MSG SIZE  rcvd: 172
 ```
+- Most of the time configuring ns-ofu DNS went to reading manuals so that I understand what I'm doing.
 - At this point I went to my domain registrar site to set glue records and nameservers. This made me realize that I probably need a secondary nameserver to make this actually work.
 - I am not giving up yet. DNS might work if I use mail-ofu as my secondary DNS.
 
-### Configuring mail-ofu as a secondary DNS 
+### Configuring mail-ofu as a secondary DNS (3 hours)
 
 - I used RHEL manual and [NSD docs](https://nsd.docs.nlnetlabs.nl/en/latest/index.html) as my source for this section.
 - OpenBSD manual entry for [nsd.conf](https://man.openbsd.org/nsd.conf.5) was also helpful for OpenBSD specific configs.
@@ -257,13 +258,63 @@ zone:
     allow-notify: 65.108.60.126 NOKEY
     request-xfr: 65.108.60.126 ofu-transfer-key
 ```
+- There was some trial and error to get the nsd.conf right, which took most of the time I used to setup nsd 
+- Finally, everything seemed okay and 'nsd-checkconf /var/nsd/etc/nsd.conf' run without errors 
 - Pf rules was changed to accept tcp and udp connections to port 53.
 - Enabled and started nsd:
 ```
 mail# rcctl enable nsd
 mail# rcctl start nsd
 ```
-- Nsd started
+- The daemon started:
 ```
+mail# cat /var/log/nsd.log 
+-- 
+[2024-03-05 23:13:51.159] nsd[7636]: notice: nsd starting (NSD 4.7.0)
+[2024-03-05 23:13:51.214] nsd[50235]: notice: nsd started (NSD 4.7.0), pid 48780
+[2024-03-05 23:13:51.226] nsd[48780]: info: zone ofu.fi serial 0 is updated to 2024030401
+```
+- Serial is from ns-ofu, which means that nsd managed to query ns-ofu 
+- I can query mail-ofu DNS records from my own workstation: 
+```
+% dig +nocomment @95.217.16.28 ofu.fi NS
 
+; <<>> DiG 9.18.24 <<>> +nocomment @95.217.16.28 ofu.fi NS
+; (1 server found)
+;; global options: +cmd
+;ofu.fi.				IN	NS
+ofu.fi.			28800	IN	NS	ns.ofu.fi.
+ofu.fi.			28800	IN	NS	ns2.ofu.fi.
+ns.ofu.fi.		28800	IN	A	65.108.60.126
+ns2.ofu.fi.		28800	IN	A	95.217.16.28
+ns.ofu.fi.		28800	IN	AAAA	2a01:4f9:c012:7e00::1
+;; Query time: 6 msec
+;; SERVER: 95.217.16.28#53(95.217.16.28) (UDP)
+;; WHEN: Wed Mar 06 00:14:38 EET 2024
+;; MSG SIZE  rcvd: 158
 ```
+- It seems that at least forward zones should be set up right now.
+
+### Setting authoritative DNS servers for ofu.fi (30 minutes)
+
+- My domain registrar allows users to use their own DNS servers.
+- Because my DNS servers are hosting the authoritative zone they are in, I also needed to set glue records.
+- Glue records mean that TLD can serve ip addresses (A records) of my DNS servers in addition to normal NS records. Supplying only NS records would cause circular dependency where resolving ofu.fi would yield authoritative nameserver ns.ofu.fi, to resolve ns.ofu.fi one would need to first resolve ofu.fi, but this again leads back to ns.ofu.fi, and so on.
+- After setting my nameserves and glue records, I needed to wait until TLD had updated it's records. 
+- I can now query ofu.fi on my own workstation from my local DNS resolver:
+```
+% dig +nocomment ofu.fi ANY
+
+; <<>> DiG 9.18.24 <<>> +nocomment ofu.fi ANY
+;; global options: +cmd
+;ofu.fi.				IN	ANY
+ofu.fi.			5944	IN	SOA	ns.ofu.fi. admin.oru.fi. 2024030401 86400 10800 259200 10800
+ofu.fi.			23944	IN	NS	ns.ofu.fi.
+ofu.fi.			23944	IN	NS	ns2.ofu.fi.
+;; Query time: 16 msec
+;; SERVER: 192.168.1.1#53(192.168.1.1) (TCP)
+;; WHEN: Wed Mar 06 01:30:06 EET 2024
+;; MSG SIZE  rcvd: 116
+```
+- My VPS provider allows to set reverse DNS for their server IPs, which saves me some trouble.
+- There would be still some tinkering left such as setting DNSSEC and adding proper IPv6 settings for both servers, but the current setup has to suffice for now. 
