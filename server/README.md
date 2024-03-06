@@ -135,7 +135,7 @@ pass in on egress proto tcp from any to any port = 2288 flags S/SA
 2a01:4f9:c012:7e00::1   ns.ofu.fi ns-ofu
 ::1                     localhost
 ```
-- By default, bind is configured to act as a local DNS resolver server. I want it to act as a public authoritative server.
+- By default, bind is configured to act as a local DNS resolver. I want it to act as a public authoritative server.
 - I changed /etc/named.conf to disable recursion and accept connections from the public internet.
 - /etc/named.conf also needs to have forward zone definition:
 ```
@@ -266,15 +266,15 @@ zone:
 mail# rcctl enable nsd
 mail# rcctl start nsd
 ```
-- The daemon started:
+- nsd daemon started:
 ```
 mail# cat /var/log/nsd.log 
--- 
+...
 [2024-03-05 23:13:51.159] nsd[7636]: notice: nsd starting (NSD 4.7.0)
 [2024-03-05 23:13:51.214] nsd[50235]: notice: nsd started (NSD 4.7.0), pid 48780
 [2024-03-05 23:13:51.226] nsd[48780]: info: zone ofu.fi serial 0 is updated to 2024030401
 ```
-- Serial is from ns-ofu, which means that nsd managed to query ns-ofu 
+- Serial is from ns-ofu zone file, which means that nsd managed to transfer records from primary dns.
 - I can query mail-ofu DNS records from my own workstation: 
 ```
 % dig +nocomment @95.217.16.28 ofu.fi NS
@@ -299,7 +299,7 @@ ns.ofu.fi.		28800	IN	AAAA	2a01:4f9:c012:7e00::1
 
 - My domain registrar allows users to use their own DNS servers.
 - Because my DNS servers are hosting the authoritative zone they are in, I also needed to set glue records.
-- Glue records mean that TLD can serve ip addresses (A records) of my DNS servers in addition to normal NS records. Supplying only NS records would cause circular dependency where resolving ofu.fi would yield authoritative nameserver ns.ofu.fi, to resolve ns.ofu.fi one would need to first resolve ofu.fi, but this again leads back to ns.ofu.fi, and so on.
+- Glue records mean that TLD can serve ip addresses (A records) of my DNS servers in addition to normal NS records. Supplying only NS records would cause circular dependency where trying to resolve ofu.fi would yield authoritative nameserver ns.ofu.fi, to resolve ns.ofu.fi one would need to first resolve ofu.fi, but this again leads back to ns.ofu.fi, and so on.
 - After setting my nameserves and glue records, I needed to wait until TLD had updated it's records. 
 - I can now query ofu.fi on my own workstation from my local DNS resolver:
 ```
@@ -318,3 +318,147 @@ ofu.fi.			23944	IN	NS	ns2.ofu.fi.
 ```
 - My VPS provider allows to set reverse DNS for their server IPs, which saves me some trouble.
 - There would be still some tinkering left such as setting DNSSEC and adding proper IPv6 settings for both servers, but the current setup has to suffice for now. 
+
+## Setting up web-server
+
+- I want to at least be able to point web browser on my workstation to "http://ofu.fi" and get a response from web-server.
+- Setting up TLS and being able to use https would nice too.
+
+### Configuring httpd server on mail-ofu to listen port 80 (http) (20 min)
+
+- Edited /etc/httpd.conf according to httpd.conf OpenBSD man page examples:
+```
+mail# cat /etc/httpd.conf
+server "ofu.fi" {
+    alias "www.ofu.fi"
+    listen on egress port 80
+    root "/htdocs/ofu.fi"
+}
+```
+- Started httpd:
+```
+mail# rcctl enable httpd
+mail# rcctl start httpd
+httpd(ok)
+```
+- Edited /var/www/htdocs/ofu.fi/index.html to contain "<html><body>ok</body></html>" to test connection 
+- Port 80 was opened for incoming tcp traffic in pf.conf and pf was told to reload config 
+- Web browser on my PC connects http://95.217.16.28/ and shows the ok-page, which means the server is running and reponds 
+
+### Configuring DNS to point connections to ofu.fi to web server: (20 min)
+
+- Two records were added to /var/named/ofu.fi.zone on ns-ofu:
+```
+@           IN          A           95.217.16.28
+www         IN          CNAME       ofu.fi.
+```
+- Serial on SOA record was updated to 2024030601 
+- Zone file was validated and named was reloaded to propagate changes 
+- Nsd on mail-ofu got notified and updated: 
+```
+mail# nsd-control zonestatus
+zone:	ofu.fi
+	state: ok
+	served-serial: "2024030601 since 2024-03-06T18:33:04"
+	commit-serial: "2024030601 since 2024-03-06T18:33:04"
+	wait: "84245 sec between attempts"
+```
+- Web browser connects to "http://ofu.fi" and shows the ok-page.
+- Connecting to "http://www.ofu.fi" works too 
+- I reached my primary goal pretty quickly, so I have time to setup TLS too ^_^ 
+
+### Configuring HTTPS (2 hours) 
+
+- OpenBSD has its own ACME client called acme-client, which can retrieve, renew and revoke certificates
+- I decided to use Let's Encrypt as my certificate authority
+- Acme-client man pages instruct adding directory on www-server for acme challenge which CA uses to confirm that I own the domain
+- I changed httpd.conf to contain:
+```
+server "ofu.fi" {
+    alias "www.ofu.fi"
+    listen on egress port 80
+    root "/htdocs/ofu.fi"
+
+    location "/.well-known/acme-challenge/*" {
+	    root "/acme"
+	    request strip 2
+    }
+}
+```
+- Httpd was reloaded to read the new config
+- Acme-client needed to be configured. Luckily configuration example /etc/examples/acme-client.conf contained almost everything I needed to use Let's Encrypt's API 
+- I copied the example to /etc/acme-client.conf and edited it to contain: 
+```
+mail$ doas cat /etc/acme-client.conf
+authority letsencrypt {
+	api url "https://acme-v02.api.letsencrypt.org/directory"
+	account key "/etc/acme/letsencrypt-privkey.pem"
+}
+
+authority letsencrypt-staging {
+	api url "https://acme-staging-v02.api.letsencrypt.org/directory"
+	account key "/etc/acme/letsencrypt-staging-privkey.pem"
+}
+
+domain ofu.fi {
+	alternative names { www.ofu.fi }
+	domain key "/etc/ssl/private/ofu.fi.key"
+	domain full chain certificate "/etc/ssl/ofu.fi.fullchain.pem"
+	sign with letsencrypt
+}
+```
+- After running acme-client first time, I realized I left filenames unedited from example file, so I had to fix the mistake and run it again.
+- Running acme-client second time created certificate files I wanted: 
+```
+mail$ doas acme-client -v ofu.fi
+acme-client: /etc/ssl/private/ofu.fi.key: generated RSA domain key
+acme-client: https://acme-v02.api.letsencrypt.org/directory: directories
+acme-client: acme-v02.api.letsencrypt.org: DNS: 172.65.32.248
+acme-client: https://acme-v02.api.letsencrypt.org/acme/finalize/1605383997/250120340497: certificate
+acme-client: order.status 3
+acme-client: https://acme-v02.api.letsencrypt.org/acme/cert/042dd29a72a6922827c78e00dbb9f8f68f9b: certificate
+acme-client: /etc/ssl/ofu.fi.fullchain.pem: created
+```
+- After checking example file /etc/examples/httpd.conf, I changed /etc/httpd.conf to:
+```
+mail$ doas cat /etc/httpd.conf
+server "ofu.fi" {
+    alias "www.ofu.fi"
+    listen on egress port 80
+    root "/htdocs/ofu.fi"
+
+    location "/.well-known/acme-challenge/*" {
+	    root "/acme"
+	    request strip 2
+    }
+
+    location * {
+        block return 302 "https://$HTTP_HOST$REQUEST_URI"
+    }
+}
+
+server "ofu.fi" {
+    alias "www.ofu.fi"
+    listen on egress tls port 443
+    root "/htdocs/ofu.fi"
+
+    tls {
+        certificate "/etc/ssl/ofu.fi.fullchain.pem"
+        key "/etc/ssl/private/ofu.fi.key"
+    }
+
+    location "/.well-known/acme-challenge/*" {
+        root "/acme"
+        request strip 2
+    }
+}
+```
+- Httpd was reloaded to read the new config 
+- Port 443 was opened to tcp traffic 
+- Browser now connects to "https://ofu.fi" and "https://www.ofu.fi" and loads ok-page 
+- Let's Encrypt certificate expires in 90 days and they recommend to renew it every 60 days.
+- I might use this www-server after the assingment is ready, so I added a line to crontab (before I forget to do it):
+```
+~   ~   6   */2 *   acme-client -F ofu.fi && rcctl reload httpd
+```
+- This renews the certificate at random time on 6th of every second month
