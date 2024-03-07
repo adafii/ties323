@@ -365,7 +365,7 @@ zone:	ofu.fi
 ```
 - Web browser connects to "http://ofu.fi" and shows the ok-page.
 - Connecting to "http://www.ofu.fi" works too 
-- I reached my primary goal pretty quickly, so I have time to setup TLS too ^_^ 
+- I reached my primary goal pretty quickly, so I have time to setup HTTPS too
 
 ### Configuring HTTPS (2 hours) 
 
@@ -462,3 +462,134 @@ server "ofu.fi" {
 ~   ~   6   */2 *   acme-client -F ofu.fi && rcctl reload httpd
 ```
 - This renews the certificate at random time on 6th of every second month
+- Randomizing time is important to avoid everyone trying to renew on the first second of day, which would cause traffic spike
+
+## SMTP server (3 hours)
+
+- OpenBSD comes with OpenSMTPD, which by default acts as a local mail transfer agent
+- My plan is to reconfigure OpenSMTPD to at least accept mail submissions outside of the server (over TLS) to local mailboxes
+- It would be fun to configure the server to relay mail outside, but my VPS provider blocks outgoing traffic to ports 25 and 465 to reduce spamming. They accept requests to unblock the ports, but my account is too new to do that
+- On ns-ofu, I added two lines to zone file, updated serial, validated and reloaded named:
+```
+mail        IN          A           95.217.16.28
+mail        IN          AAAA        2a01:4f9:c012:c33e::1 
+```
+- This assigns subdomain mail for mail-ofu 
+- Mail.ofu.fi also needs its own certificate for TLS connections, the process is same as creating web-server certificate before
+- Subdomain was added to acme-client.config: 
+```
+domain mail.ofu.fi {
+    domain key "/etc/ssl/private/mail.ofu.fi.key"
+    domain full chain certificate "/etc/ssl/mail.ofu.fi.fullchain.pem"
+    sign with letsencrypt
+}
+```
+- Httpd needs to serve acme-challenge for the subdomain so CA knows we own the domain:
+```
+server "mail.ofu.fi" {
+    listen on egress port 80
+    root "/htdocs/mail.ofu.fi"
+
+    location "/.well-known/acme-challenge/*" {
+	    root "/acme"
+	    request strip 2
+    }
+}
+```
+- After reloading http, running "acme-client -v mail.ofu.fi" created the certificate 
+- OpenSMTPD config (/etc/mail/smtpd.conf) was changed to:
+```
+pki mail.ofu.fi cert "/etc/ssl/mail.ofu.fi.fullchain.pem"
+pki mail.ofu.fi key "/etc/ssl/private/mail.ofu.fi.key"
+
+table aliases file:/etc/mail/aliases
+
+listen on egress port submissions smtps pki mail.ofu.fi auth
+listen on lo0
+
+action "local_mail" mbox alias <aliases>
+
+match from auth for domain "ofu.fi" action "local_mail"
+match from local for local action "local_mail"
+```
+- SMTP server listens to port 465 (submissions) for incoming TLS connections (smtps). STARTTLS is not supported.
+- User has to always authenticate with AUTH PLAIN before sending mail. User uses system login and password.
+- Authenticated user are allowed to send mail to ofu.fi domain, for example "admin@ofu.fi"
+- Received mail is directed to recipient's local mailboxe (mbox). Recipient can be any username on mail.ofu.fi or an alias. Aliases is a file containing alias names for users, for example "postmaster: root"
+- Port 465 was opened to incoming tcp traffic 
+- On my own workstation, I used stunnel to establish TLS connection. Stunnel config:
+```
+[smtp]
+client = yes
+accept = 127.0.0.1:2525
+connect = mail.ofu.fi:465
+verifyChain = yes
+CApath = /etc/ssl/certs
+checkHost = mail.ofu.fi
+OCSPaia = yes
+```
+- Then I connected to the local end of the tunnel with netcat and sent mail to my user account on mail.ofu.fi:
+```
+% nc -C localhost 2525
+220 mail.ofu.fi ESMTP OpenSMTPD
+ehlo workstation
+250-mail.ofu.fi Hello workstation [88.113.147.184], pleased to meet you
+250-8BITMIME
+250-ENHANCEDSTATUSCODES
+250-SIZE 36700160
+250-DSN
+250-AUTH PLAIN LOGIN
+250 HELP
+auth plain <redacted base64 encoded "username\u0000username\u0000password">
+235 2.0.0 Authentication succeeded
+mail from:<adafii@workstation>
+250 2.0.0 Ok
+rcpt to:<adafii@ofu.fi>
+250 2.1.5 Destination address valid: Recipient ok
+data
+354 Enter mail, end with "." on a line by itself
+From: adafii@workstation
+To: adafii@ofu.fi
+Subject: Greetings
+
+Did you remember to feed the cats?
+.
+250 2.0.0 a6c04c11 Message accepted for delivery
+quit
+221 2.0.0 Bye
+```
+- I can login to mail-ofu with my username to read the message:
+```
+% ssh mail-ofu
+Last login: Thu Mar  7 19:35:14 2024 from 88.113.147.184
+OpenBSD 7.4 (GENERIC) #3: Wed Feb 28 06:23:08 MST 2024
+
+Welcome to OpenBSD: The proactively secure Unix-like operating system.
+
+Please use the sendbug(1) utility to report bugs in the system.
+Before reporting a bug, please try to reproduce it with the latest
+version of the code.  With bug reports, please try to ensure that
+enough information to reproduce the problem is enclosed, and if a
+known fix for it exists, include that as well.
+
+mail$ mail
+Mail version 8.1.2 01/15/2001.  Type ? for help.
+"/var/mail/adafii": 1 message 1 new
+>N  1 adafii@workstatio  Thu Mar  7 22:46   13/445   Greetings
+& n
+Message 1:
+From adafii@workstation Thu Mar  7 22:46:42 2024
+Delivered-To: adafii@ofu.fi
+From: adafii@workstation
+To: adafii@ofu.fi
+Subject: Greetings
+
+Did you remember to feed the cats?
+
+& q
+Saved 1 message in mbox
+mail$ 
+```
+- Goal reached 
+- I mostly used smtpd.conf man pages as documentation to configure the server. I also had to study from various sources how user authentication and TLS connections work with SMTP servers.
+
