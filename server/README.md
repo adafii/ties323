@@ -589,6 +589,39 @@ Did you remember to feed the cats?
 Saved 1 message in mbox
 mail$ 
 ```
-- Goal reached 
+- My goal was reached
 - I mostly used smtpd.conf man pages as documentation to configure the server. I also had to study from various sources how user authentication and TLS connections work with SMTP servers.
+- [This article](https://poolp.org/posts/2019-09-14/setting-up-a-mail-server-with-opensmtpd-dovecot-and-rspamd/) was also helpful
+
+## POP3 and IMAP
+
+- I decided to use Dovecot as my mail delivery agent, as it seems to be the most common choice for OpenBSD
+- Dovecot was installed to mail-ofu (pkg_add dovecot)
+- I used [Dovecot manual](https://doc.dovecot.org/) as my main source for configs
+- Especially [Quick Configuration](https://doc.dovecot.org/configuration_manual/quick_configuration/) section was very helpful 
+- Dovecot configuration is quite overwhelming in the beginning, but it helps that default config is already pretty close to what most people want. Config options are also thoroughly commented in the config files 
+- File /etc/dovecot/dovecot.conf was edited to make dovecot serve IMAP and POP3, and to listen public IPs:
+```
+protocols = imap pop3
+listen = 95.217.16.28, 2a01:4f9:c012:c33e::1
+```
+- Same TLS certificate is used for IMAP and POP3 as for SMTP. File /etc/dovecot/conf.d/10-ssl.conf was changed to include:
+```
+ssl = required
+ssl_cert = </etc/ssl/mail.ofu.fi.fullchain.pem
+ssl_key = </etc/ssl/private/mail.ofu.fi.key
+```
+- Dovecot needs to know where user's mail is stored. On OpenBSD, the default user inbox is located at /var/mail/<username>.
+- Because IMAP uses multiple mailboxes in addition to inbox, every user also has to have ~/mail directory where other mailboxes are stored
+- File /etc/dovecot/conf.d/10-mail.conf was configured to include mailbox locations:
+```
+mail_location = mbox:~/mail:INBOX=/var/mail/%u
+```
+- Dovecot was enabled and started 
+```
+mail# rcctl enable dovecot
+mail# rcctl start dovecot
+dovecot(ok)
+```
+- Ports 993 (imaps) and 995 (pop3s) were opened for incoming tcp traffic 
 
