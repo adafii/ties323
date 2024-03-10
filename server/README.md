@@ -593,7 +593,7 @@ mail$
 - I mostly used smtpd.conf man pages as documentation to configure the server. I also had to study from various sources how user authentication and TLS connections work with SMTP servers.
 - [This article](https://poolp.org/posts/2019-09-14/setting-up-a-mail-server-with-opensmtpd-dovecot-and-rspamd/) was also helpful
 
-## POP3 and IMAP
+## POP3 and IMAP (1.5 hours)
 
 - I decided to use Dovecot as my mail delivery agent, as it seems to be the most common choice for OpenBSD
 - Dovecot was installed to mail-ofu (pkg_add dovecot)
@@ -624,4 +624,95 @@ mail# rcctl start dovecot
 dovecot(ok)
 ```
 - Ports 993 (imaps) and 995 (pop3s) were opened for incoming tcp traffic 
+- On my workstation, stunnel was configured to connect to imaps and pop3s ports: 
+```
+[pop3]
+client = yes
+accept = 127.0.0.1:2995
+connect = mail.ofu.fi:995
+verifyChain = yes
+CApath = /etc/ssl/certs
+checkHost = mail.ofu.fi
+OCSPaia = yes
 
+[imap]
+client = yes
+accept = 127.0.0.1:2993
+connect = mail.ofu.fi:993
+verifyChain = yes
+CApath = /etc/ssl/certs
+checkHost = mail.ofu.fi
+OCSPaia = yes
+```
+- I had to resend myself a new email using SMTP, because the previous message was deleted
+- IMAP connection from my workstation:
+```
+% nc -C localhost 2993
+* OK [CAPABILITY IMAP4rev1 SASL-IR LOGIN-REFERRALS ID ENABLE IDLE LITERAL+ AUTH=PLAIN] Dovecot ready.
+1 authenticate plain
++
+<redacted base64 encoded "\0user\0password">
+1 OK [CAPABILITY IMAP4rev1 SASL-IR LOGIN-REFERRALS ID ENABLE IDLE SORT SORT=DISPLAY THREAD=REFERENCES THREAD=REFS THREAD=ORDEREDSUBJECT MULTIAPPEND URL-PARTIAL CATENATE UNSELECT CHILDREN NAMESPACE UIDPLUS LIST-EXTENDED I18NLEVEL=1 CONDSTORE QRESYNC ESEARCH ESORT SEARCHRES WITHIN CONTEXT=SEARCH LIST-STATUS BINARY MOVE SNIPPET=FUZZY PREVIEW=FUZZY PREVIEW STATUS=SIZE SAVEDATE LITERAL+ NOTIFY SPECIAL-USE] Logged in
+2 list "" *
+* LIST (\HasNoChildren) "/" INBOX
+2 OK List completed (0.008 + 0.000 + 0.008 secs).
+3 examine inbox
+* FLAGS (\Answered \Flagged \Deleted \Seen \Draft)
+* OK [PERMANENTFLAGS ()] Read-only mailbox.
+* 1 EXISTS
+* 1 RECENT
+* OK [UNSEEN 1] First unseen.
+* OK [UIDVALIDITY 1710107946] UIDs valid
+* OK [UIDNEXT 2] Predicted next UID
+3 OK [READ-ONLY] Examine completed (0.004 + 0.041 + 0.044 secs).
+4 fetch 1 (body[header] body[text])
+* 1 FETCH (BODY[HEADER] {371}
+Return-Path: <adafii@workstation>
+Delivered-To: adafii@ofu.fi
+Received: from workstation (88-113-147-184.elisa-laajakaista.fi [88.113.147.184])
+	by mail.ofu.fi (OpenSMTPD) with ESMTPSA id 691d7f06 (TLSv1.3:TLS_AES_256_GCM_SHA384:256:NO)
+	for <adafii@ofu.fi>;
+	Mon, 11 Mar 2024 00:01:33 +0200 (EET)
+From: adafii@workstation
+To: adafii@oru.fi
+Subject: Greetings
+
+ BODY[TEXT] {36}
+Did you remember to feed the cats?
+)
+4 OK Fetch completed (0.006 + 0.041 + 0.005 secs).
+5 logout
+* BYE Logging out
+5 OK Logout completed (0.005 + 0.041 + 0.044 secs).
+```
+- IMAP seems to work 
+- POP3 connection from my workstation:
+```
+% nc -C localhost 2995
++OK Dovecot ready.
+user adafii
++OK
+pass <redacted password in plain text>
++OK Logged in.
+list
++OK 1 messages:
+1 407
+.
+retr 1
++OK 407 octets
+Return-Path: <adafii@workstation>
+Delivered-To: adafii@ofu.fi
+Received: from workstation (88-113-147-184.elisa-laajakaista.fi [88.113.147.184])
+	by mail.ofu.fi (OpenSMTPD) with ESMTPSA id 691d7f06 (TLSv1.3:TLS_AES_256_GCM_SHA384:256:NO)
+	for <adafii@ofu.fi>;
+	Mon, 11 Mar 2024 00:01:33 +0200 (EET)
+From: adafii@workstation
+To: adafii@oru.fi
+Subject: Greetings
+
+Did you remember to feed the cats?
+.
+quit
++OK Logging out.
+```
+- POP3 seems to work too
