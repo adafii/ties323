@@ -75,9 +75,10 @@ asio::awaitable<asio::error_code> send_loop(asio::ip::udp::socket& connection_so
     };
 
     auto file_bytes_read = file_reader(data_packet.data);
+    auto last_data_size = std::size_t{};
     auto send_loop_watchdog = tftp::watchdog{connection_socket.get_executor(), MAX_WAIT_TIME};
 
-    while (file_bytes_read > 0) {
+    while (file_bytes_read > 0 || last_data_size == DATA_CHUNK_SIZE) {
         if (send_loop_watchdog.has_expired()) {
             co_return asio::error::timed_out;
         }
@@ -120,6 +121,7 @@ asio::awaitable<asio::error_code> send_loop(asio::ip::udp::socket& connection_so
 
         send_loop_watchdog.reset();
 
+        last_data_size = file_bytes_read;
         file_bytes_read = file_reader(data_packet.data);
         ++data_packet.block;
     }
