@@ -39,3 +39,13 @@ SMTP, POP3, and IMAP servers are run within a single process, which allows them 
 - [x] [CGI](/kathara/cgi)
 - [x] [DNS](/kathara/dns)
 - [x] [Walkthrough](/kathara/walkthrough)
+
+## Web, email and DNS servers 
+
+Notes from setting up the servers are [here](/server/README.md). I used my own servers and domain instead of lab setup.
+
+- [x] Initial setup
+- [x] [DNS](https://zonemaster.fi/result/fffd98e51a990217)
+- [x] [Web server](https://ofu.fi)
+- [x] SMTP
+- [x] POP3 and IMAP
