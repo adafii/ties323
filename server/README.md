@@ -107,7 +107,7 @@ table inet nftables_svc {
     - All outgoing TCP, UDP and ICMP connections (I might restrict this later if needed)
     - Incoming TCP connections to SSH port 2288 
 - PF tracks the state by default, so returning traffic, both ways, always passes unless explicitly restricted
-- After setting the rules:
+- After configuring, current ruleset was checked:
 ```
 mail$ doas pfctl -sr
 match in all scrub (no-df)
@@ -126,7 +126,7 @@ pass in on egress proto tcp from any to any port = 2288 flags S/SA
 - To find more detailed information, I used [BIND manual](https://bind9.readthedocs.io/en/latest/index.html)
 - Bind was installed to ns-ofu (dnf install bind)
 - As instructed in RHEL manual, SELinux was set from permissive mode to enforcing mode to harden bind against known vulnerabilities
-- Edited /etc/hosts to:
+- File /etc/hosts was edited to:
 ```
 65.108.60.126           ns.ofu.fi ns-ofu
 127.0.0.1               localhost
@@ -134,7 +134,7 @@ pass in on egress proto tcp from any to any port = 2288 flags S/SA
 2a01:4f9:c012:7e00::1   ns.ofu.fi ns-ofu
 ::1                     localhost
 ```
-- By default, bind is configured to act as a local DNS resolver. I want it to act as a public authoritative server
+- By default, bind is configured to work as a local DNS resolver. I want it to work as a public authoritative server
 - /etc/named.conf was changed to disable recursion and accept connections from the public internet
 - /etc/named.conf also needs to have forward zone definition:
 ```
@@ -161,7 +161,7 @@ ns          IN          A           65.108.60.126
 ns          IN          AAAA        2a01:4f9:c012:7e00::1
 ```
 - Mail address is not a typo, it's my other domain
-- Changed file permissions according to RHEL manual and validated zone-file:
+- File permissions were changed according to RHEL manual and validated zone-file:
 ```
 # chown root:named /var/named/ofu.fi.zone
 # chmod 640 /var/named/ofu.fi.zone
@@ -169,9 +169,9 @@ ns          IN          AAAA        2a01:4f9:c012:7e00::1
 zone ofu.fi/IN: loaded serial 2024030401
 OK
 ```
-- I opened port 53 for udp and tcp traffic from nftables config and reloaded nftables.
-- Finally, 'systemctl enable --now named' to enable and start bind.
-- I can now query records from my own workstation:
+- Port 53 was opened for udp and tcp traffic from nftables config and reloaded nftables
+- Finally, 'systemctl enable --now named' to enable and start bind
+- I can now directly query records from my own workstation:
 ```
 % dig +nocomment @65.108.60.126 ofu.fi any
 
@@ -188,15 +188,15 @@ ns.ofu.fi.		28800	IN	AAAA	2a01:4f9:c012:7e00::1
 ;; WHEN: Tue Mar 05 21:21:48 EET 2024
 ;; MSG SIZE  rcvd: 172
 ```
-- Most of the time configuring ns-ofu DNS went to reading manuals so that I understand what I'm doing.
-- At this point I went to my domain registrar site to set glue records and nameservers. This made me realize that I probably need a secondary nameserver to make this actually work.
-- I am not giving up yet. DNS might work if I use mail-ofu as my secondary DNS.
+- Most of the time configuring ns-ofu DNS went to reading manuals so that I understand what I'm doing
+- At this point I went to my domain registrar site to set glue records and nameservers. This made me realize that I probably need a secondary nameserver to make this actually work
+- To get DNS to work properly, I decided to use mail-ofu as my secondary DNS
 
 ### Configuring mail-ofu as a secondary DNS (3 hours)
 
-- I used RHEL manual and [NSD docs](https://nsd.docs.nlnetlabs.nl/en/latest/index.html) as my source for this section.
-- OpenBSD manual entry for [nsd.conf](https://man.openbsd.org/nsd.conf.5) was also helpful for OpenBSD specific configs.
-- Zone file on ns-ofu was changed to:
+- I used RHEL manual and [NSD docs](https://nsd.docs.nlnetlabs.nl/en/latest/index.html) as my source for this section
+- OpenBSD manual entry for [nsd.conf](https://man.openbsd.org/nsd.conf.5) was also helpful for OpenBSD specific configs
+- Zone file on ns-ofu was changed to include the secondary DNS:
 ```
 cat /var/named/ofu.fi.zone
 $TTL 8h
@@ -219,7 +219,7 @@ ns2         IN          A           95.217.16.28
 ```
 key "ofu-transfer-key" {
 	algorithm hmac-sha256;
-	secret <redacted>;
+	secret <redacted secret key>;
 };
 
 zone "ofu.fi" {
@@ -229,7 +229,7 @@ zone "ofu.fi" {
 	allow-transfer { key ofu-transfer-key; };
 };
 ```
-- Changes above were validated and reloaded.
+- Configuration files were validated and bind was reloaded
 - I created /var/nsd/etc/nsd.conf to mail-ofu:
 ```
 mail# cat /var/nsd/etc/nsd.conf
@@ -249,7 +249,7 @@ remote-control:
 key:
     name: ofu-transfer-key
     algorithm: hmac-sha256
-    secret: <redacted>
+    secret: <redacted secret key>
 
 zone:
     name: "ofu.fi"
@@ -259,13 +259,13 @@ zone:
 ```
 - There was some trial and error to get the nsd.conf right, which took most of the time I used to setup nsd 
 - Finally, everything seemed okay and 'nsd-checkconf /var/nsd/etc/nsd.conf' run without errors 
-- Pf rules was changed to accept tcp and udp connections to port 53.
-- Enabled and started nsd:
+- Pf rules were changed to accept tcp and udp connections to port 53.
+- Nsd was enabled and started:
 ```
 mail# rcctl enable nsd
 mail# rcctl start nsd
 ```
-- nsd daemon started:
+- Nsd daemon was started and logs were checked:
 ```
 mail# cat /var/log/nsd.log 
 ...
@@ -273,8 +273,8 @@ mail# cat /var/log/nsd.log
 [2024-03-05 23:13:51.214] nsd[50235]: notice: nsd started (NSD 4.7.0), pid 48780
 [2024-03-05 23:13:51.226] nsd[48780]: info: zone ofu.fi serial 0 is updated to 2024030401
 ```
-- Serial is from ns-ofu zone file, which means that nsd managed to transfer records from primary dns.
-- I can query mail-ofu DNS records from my own workstation: 
+- Serial is from ns-ofu zone file, which means that nsd managed to transfer records from primary DNS
+- Mail-ofu DNS records can be directly queried from my own workstation: 
 ```
 % dig +nocomment @95.217.16.28 ofu.fi NS
 
@@ -292,15 +292,15 @@ ns.ofu.fi.		28800	IN	AAAA	2a01:4f9:c012:7e00::1
 ;; WHEN: Wed Mar 06 00:14:38 EET 2024
 ;; MSG SIZE  rcvd: 158
 ```
-- It seems that at least forward zones should be set up right now.
+- It seems that at least forward zones should be set up right now
 
 ### Setting authoritative DNS servers for ofu.fi (30 minutes)
 
-- My domain registrar allows users to use their own DNS servers.
-- Because my DNS servers are hosting the authoritative zone they are in, I also needed to set glue records.
-- Glue records mean that TLD can serve ip addresses (A records) of my DNS servers in addition to normal NS records. Supplying only NS records would cause circular dependency where trying to resolve ofu.fi would yield authoritative nameserver ns.ofu.fi, to resolve ns.ofu.fi one would need to first resolve ofu.fi, but this again leads back to ns.ofu.fi, and so on.
-- After setting my nameserves and glue records, I needed to wait until TLD had updated it's records. 
-- I can now query ofu.fi on my own workstation from my local DNS resolver:
+- My domain registrar allows users to use their own DNS servers
+- Because my DNS servers are hosting the authoritative zone they are in, I also needed to set glue records
+- Glue records mean that TLD will serve IP addresses (A/AAAA records) of my DNS servers along with the NS records. Supplying only NS records would cause circular dependency where trying to resolve ofu.fi would yield authoritative nameserver ns.ofu.fi, to resolve ns.ofu.fi one would need to first resolve ofu.fi, but this again leads back to ns.ofu.fi, and so on.
+- After setting my nameservers and glue records, I needed to wait a bit until DNS records were propagated
+- Domain ofu.fi can now be queried from my own workstation using local DNS resolver:
 ```
 % dig +nocomment ofu.fi ANY
 
@@ -315,17 +315,17 @@ ofu.fi.			23944	IN	NS	ns2.ofu.fi.
 ;; WHEN: Wed Mar 06 01:30:06 EET 2024
 ;; MSG SIZE  rcvd: 116
 ```
-- My VPS provider allows to set reverse DNS for their server IPs, which saves me some trouble.
+- My VPS provider allows to set reverse DNS for their static server IPs, which saves me some trouble
 - There would be still some tinkering left such as setting DNSSEC and adding proper IPv6 settings for both servers, but the current setup has to suffice for now. 
 
-## Setting up web-server
+## Web server
 
 - I want to at least be able to point web browser on my workstation to "http://ofu.fi" and get a response from web-server.
-- Setting up TLS and being able to use https would nice too.
+- Setting up TLS and being able to use https://ofu.fi would nice too.
 
 ### Configuring httpd server on mail-ofu to listen port 80 (http) (20 min)
 
-- Edited /etc/httpd.conf according to httpd.conf OpenBSD man page examples:
+- File /etc/httpd.conf was edited according to httpd.conf OpenBSD man page examples:
 ```
 mail# cat /etc/httpd.conf
 server "ofu.fi" {
@@ -334,26 +334,27 @@ server "ofu.fi" {
     root "/htdocs/ofu.fi"
 }
 ```
-- Started httpd:
+- Httpd service was enabled and started successfully:
 ```
 mail# rcctl enable httpd
 mail# rcctl start httpd
 httpd(ok)
 ```
-- Edited /var/www/htdocs/ofu.fi/index.html to contain "<html><body>ok</body></html>" to test connection 
+- Index page /var/www/htdocs/ofu.fi/index.html was created, it only contains "<html><body>ok</body></html>", which is enough to test the server
 - Port 80 was opened for incoming tcp traffic in pf.conf and pf was told to reload config 
-- Web browser on my PC connects http://95.217.16.28/ and shows the ok-page, which means the server is running and reponds 
+- Web browser on my PC connects to http://95.217.16.28/ and loads the ok-page, which means the server is running and reponds
 
 ### Configuring DNS to point connections to ofu.fi to web server: (20 min)
 
-- Two records were added to /var/named/ofu.fi.zone on ns-ofu:
+- Two records were added to zone file /var/named/ofu.fi.zone on ns-ofu:
 ```
 @           IN          A           95.217.16.28
 www         IN          CNAME       ofu.fi.
 ```
-- Serial on SOA record was updated to 2024030601 
-- Zone file was validated and named was reloaded to propagate changes 
-- Nsd on mail-ofu got notified and updated: 
+- First record points domain ofu.fi to mail-ofu server and the second creates alias www.ofu.fi for ofu.fi
+- Serial on SOA record was updated to 2024030601
+- Zone file was validated and bind was reloaded to propagate the changes 
+- Nsd on mail-ofu got successfully notified and updated: 
 ```
 mail# nsd-control zonestatus
 zone:	ofu.fi
@@ -362,16 +363,16 @@ zone:	ofu.fi
 	commit-serial: "2024030601 since 2024-03-06T18:33:04"
 	wait: "84245 sec between attempts"
 ```
-- Web browser connects to "http://ofu.fi" and shows the ok-page.
-- Connecting to "http://www.ofu.fi" works too 
-- I reached my primary goal pretty quickly, so I have time to setup HTTPS too
+- Web browser connects to "http://ofu.fi" and loads the ok-page
+- Connecting to "http://www.ofu.fi" works similarly 
+- I reached my primary goal pretty quickly, so I have time to setup HTTPS
 
 ### Configuring HTTPS (2 hours) 
 
 - OpenBSD has its own ACME client called acme-client, which can retrieve, renew and revoke certificates
-- I decided to use Let's Encrypt as my certificate authority
-- Acme-client man pages instruct adding directory on www-server for acme challenge which CA uses to confirm that I own the domain
-- I changed httpd.conf to contain:
+- I decided to use Let's Encrypt as my certificate authority, because it's free
+- Acme-client manual pages instruct adding directory to www-server for acme challenge, which CA then uses to confirm that I own the domain
+- File httpd.conf was changed to contain:
 ```
 server "ofu.fi" {
     alias "www.ofu.fi"
@@ -406,8 +407,8 @@ domain ofu.fi {
 	sign with letsencrypt
 }
 ```
-- After running acme-client first time, I realized I left filenames unedited from example file, so I had to fix the mistake and run it again.
-- Running acme-client second time created certificate files I wanted: 
+- After running acme-client first time, I realized I left filenames unedited from example file, so I had to fix the mistake and run it again
+- Running acme-client second time created the right certificate files: 
 ```
 mail$ doas acme-client -v ofu.fi
 acme-client: /etc/ssl/private/ofu.fi.key: generated RSA domain key
@@ -418,7 +419,7 @@ acme-client: order.status 3
 acme-client: https://acme-v02.api.letsencrypt.org/acme/cert/042dd29a72a6922827c78e00dbb9f8f68f9b: certificate
 acme-client: /etc/ssl/ofu.fi.fullchain.pem: created
 ```
-- After checking example file /etc/examples/httpd.conf, I changed /etc/httpd.conf to:
+- After checking example file /etc/examples/httpd.conf, /etc/httpd.conf was changed to:
 ```
 mail$ doas cat /etc/httpd.conf
 server "ofu.fi" {
@@ -452,10 +453,11 @@ server "ofu.fi" {
     }
 }
 ```
+- Connecting with http will automatically redirect to https 
 - Httpd was reloaded to read the new config 
 - Port 443 was opened to tcp traffic 
-- Browser now connects to "https://ofu.fi" and "https://www.ofu.fi" and loads ok-page 
-- Let's Encrypt certificate expires in 90 days and they recommend to renew it every 60 days.
+- Browser now connects to "https://ofu.fi" and "https://www.ofu.fi" and loads the ok-page 
+- Let's Encrypt certificate expires in 90 days and they recommend to renew it every 60 days
 - I might use this www-server after the assingment is ready, so I added a line to crontab (before I forget to do it):
 ```
 ~   ~   6   */2 *   acme-client -F ofu.fi && rcctl reload httpd
@@ -465,7 +467,7 @@ server "ofu.fi" {
 
 ## SMTP server (3 hours)
 
-- OpenBSD comes with OpenSMTPD, which by default acts as a local mail transfer agent
+- OpenBSD comes with OpenSMTPD, which by default acts as a local mail transfer agent, i.e., local users can send each other mail inside the server
 - My plan is to reconfigure OpenSMTPD to at least accept mail submissions outside of the server (over TLS) to local mailboxes
 - It would be fun to configure the server to relay mail outside, but my VPS provider blocks outgoing traffic to ports 25 and 465 to reduce spamming. They accept requests to unblock the ports, but my account is too new to do that
 - On ns-ofu, I added two lines to zone file, updated serial, validated and reloaded named:
@@ -473,7 +475,7 @@ server "ofu.fi" {
 mail        IN          A           95.217.16.28
 mail        IN          AAAA        2a01:4f9:c012:c33e::1 
 ```
-- This assigns subdomain mail for mail-ofu 
+- This points subdomain mail.ofu.fi to mail-ofu 
 - Mail.ofu.fi also needs its own certificate for TLS connections, the process is same as creating web-server certificate before
 - Subdomain was added to acme-client.config: 
 ```
@@ -483,7 +485,7 @@ domain mail.ofu.fi {
     sign with letsencrypt
 }
 ```
-- Httpd needs to serve acme-challenge for the subdomain so CA knows we own the domain:
+- Httpd needs to serve acme-challenge for the subdomain so that the CA knows we own the domain:
 ```
 server "mail.ofu.fi" {
     listen on egress port 80
@@ -495,7 +497,7 @@ server "mail.ofu.fi" {
     }
 }
 ```
-- After reloading http, running "acme-client -v mail.ofu.fi" created the certificate 
+- After reloading httpd, running "acme-client -v mail.ofu.fi" created the certificate 
 - OpenSMTPD config (/etc/mail/smtpd.conf) was changed to:
 ```
 pki mail.ofu.fi cert "/etc/ssl/mail.ofu.fi.fullchain.pem"
@@ -512,11 +514,11 @@ match from auth for domain "ofu.fi" action "local_mail"
 match from local for local action "local_mail"
 ```
 - SMTP server listens to port 465 (submissions) for incoming TLS connections (smtps). STARTTLS is not supported.
-- User has to always authenticate with AUTH PLAIN before sending mail. User uses system login and password.
-- Authenticated user are allowed to send mail to ofu.fi domain, for example "admin@ofu.fi"
-- Received mail is directed to recipient's local mailboxe (mbox). Recipient can be any username on mail.ofu.fi or an alias. Aliases is a file containing alias names for users, for example "postmaster: root"
+- User has to always authenticate with AUTH PLAIN before sending mail. User uses their mail-ofu account login and password to authenticate
+- Authenticated users are allowed to send mail to ofu.fi domain, for example "admin@ofu.fi"
+- Received mail is directed to recipient's local mailbox (mbox). Recipient can be any username on mail.ofu.fi or an alias. Aliases is a file containing alias names for users, for example "postmaster: root"
 - Port 465 was opened to incoming tcp traffic 
-- On my own workstation, I used stunnel to establish TLS connection. Stunnel config:
+- On my own workstation, I used stunnel to first establish a TLS connection to mail-ofu. Stunnel config:
 ```
 [smtp]
 client = yes
@@ -557,7 +559,7 @@ Did you remember to feed the cats?
 quit
 221 2.0.0 Bye
 ```
-- I can login to mail-ofu with my username to read the message:
+- I can now login to mail-ofu with my user account to read the message:
 ```
 % ssh mail-ofu
 Last login: Thu Mar  7 19:35:14 2024 from 88.113.147.184
@@ -590,28 +592,28 @@ Saved 1 message in mbox
 mail$ 
 ```
 - My goal was reached
-- I mostly used smtpd.conf man pages as documentation to configure the server. I also had to study from various sources how user authentication and TLS connections work with SMTP servers.
+- I mostly used smtpd.conf man pages as documentation to configure the server. I also had to study from various sources how user authentication and TLS connections work with SMTP servers
 - [This article](https://poolp.org/posts/2019-09-14/setting-up-a-mail-server-with-opensmtpd-dovecot-and-rspamd/) was also helpful
 
 ## POP3 and IMAP (1.5 hours)
 
-- I decided to use Dovecot as my mail delivery agent, as it seems to be the most common choice for OpenBSD
+- I decided to use Dovecot as my mail delivery agent (IMAP/POP3 server), as it seems to be the most common choice for OpenBSD
 - Dovecot was installed to mail-ofu (pkg_add dovecot)
 - I used [Dovecot manual](https://doc.dovecot.org/) as my main source for configs
 - Especially [Quick Configuration](https://doc.dovecot.org/configuration_manual/quick_configuration/) section was very helpful 
 - Dovecot configuration is quite overwhelming in the beginning, but it helps that default config is already pretty close to what most people want. Config options are also thoroughly commented in the config files 
-- File /etc/dovecot/dovecot.conf was edited to make dovecot serve IMAP and POP3, and to listen public IPs:
+- File /etc/dovecot/dovecot.conf was edited to make dovecot serve IMAP and POP3, and to listen mail-ofu's public IPs:
 ```
 protocols = imap pop3
 listen = 95.217.16.28, 2a01:4f9:c012:c33e::1
 ```
-- Same TLS certificate is used for IMAP and POP3 as for SMTP. File /etc/dovecot/conf.d/10-ssl.conf was changed to include:
+- Same certificate was used for IMAP and POP3 as for SMTP. File /etc/dovecot/conf.d/10-ssl.conf was changed to include:
 ```
 ssl = required
 ssl_cert = </etc/ssl/mail.ofu.fi.fullchain.pem
 ssl_key = </etc/ssl/private/mail.ofu.fi.key
 ```
-- Dovecot needs to know where user's mail is stored. On OpenBSD, the default user inbox is located at /var/mail/<username>.
+- Dovecot needs to know where user's mail is stored. On OpenBSD, the default user inbox is located at /var/mail/<username>
 - Because IMAP uses multiple mailboxes in addition to inbox, every user also has to have ~/mail directory where other mailboxes are stored
 - File /etc/dovecot/conf.d/10-mail.conf was configured to include mailbox locations:
 ```
@@ -644,8 +646,8 @@ CApath = /etc/ssl/certs
 checkHost = mail.ofu.fi
 OCSPaia = yes
 ```
-- I had to resend myself a new email using SMTP, because the previous message was deleted
-- IMAP connection from my workstation:
+- I had to resend myself a new test email using SMTP, because the previous message was deleted
+- IMAP connection was tried from my workstation:
 ```
 % nc -C localhost 2993
 * OK [CAPABILITY IMAP4rev1 SASL-IR LOGIN-REFERRALS ID ENABLE IDLE LITERAL+ AUTH=PLAIN] Dovecot ready.
@@ -685,8 +687,8 @@ Did you remember to feed the cats?
 * BYE Logging out
 5 OK Logout completed (0.005 + 0.041 + 0.044 secs).
 ```
-- IMAP seems to work 
-- POP3 connection from my workstation:
+- IMAP seems to work
+- Next, POP3 connection was tried from my workstation:
 ```
 % nc -C localhost 2995
 +OK Dovecot ready.
